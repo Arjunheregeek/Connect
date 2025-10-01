@@ -186,5 +186,4 @@ Temporary Items
 .apdisk
 
 # Project specific
-*.csv
 !requirements.txt
