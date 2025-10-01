@@ -2,3 +2,4 @@
 # Dependencies for data processing and CSV manipulation
 
 pandas
+neo4j~=5.28.0
