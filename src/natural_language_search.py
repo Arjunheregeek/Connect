@@ -114,7 +114,8 @@ Answer:"""
             llm=llm,
             verbose=True,  # Set to True to see the generated Cypher in your terminal
             allow_dangerous_requests=True,  # Required acknowledgment for using AI-generated queries
-            cypher_prompt=cypher_prompt_template
+            cypher_prompt=cypher_prompt_template,
+            return_intermediate_steps=True  # This will give us access to the context data
         )
         print("✅ GraphCypherQAChain ready!")
 
@@ -125,28 +126,61 @@ Answer:"""
         # Step 1: Get the raw result from the chain
         result = self.chain.invoke({"query": question})
         
-        # Step 2: If we have context data, use a separate LLM call to format the answer
-        if result.get('context') and len(result['context']) > 0:
+        # Debug: Print what we get back
+        print(f"🔍 Debug - Result keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
+        
+        # Step 2: Extract context data from intermediate_steps
+        context_data = None
+        
+        # With return_intermediate_steps=True, we should have access to the context
+        if 'intermediate_steps' in result and result['intermediate_steps']:
+            print(f"🔍 Debug - Found {len(result['intermediate_steps'])} intermediate steps")
+            # The intermediate steps should contain the context
+            for i, step in enumerate(result['intermediate_steps']):
+                print(f"🔍 Debug - Step {i}: {type(step)}")
+                if isinstance(step, dict):
+                    print(f"🔍 Debug - Step {i} keys: {list(step.keys())}")
+                    if 'context' in step:
+                        context_data = step['context']
+                        print(f"🔍 Debug - Found context with {len(context_data)} items")
+                        break
+                elif hasattr(step, '__dict__'):
+                    print(f"🔍 Debug - Step {i} attributes: {list(vars(step).keys())}")
+                    if hasattr(step, 'context'):
+                        context_data = step.context
+                        break
+        
+        # Step 3: If we have context data, format it with a second LLM call
+        if context_data and len(context_data) > 0:
+            print(f"🔄 Processing {len(context_data)} results...")
+            
             # Create a separate LLM instance for answer formatting
             answer_llm = ChatOpenAI(model="gpt-4", temperature=0, api_key=os.getenv("OPENAI_API_KEY"))
             
-            # Format the context data into a readable string
-            context_data = result['context']
-            context_str = "\n".join([f"- {list(item.values())[0]}" for item in context_data])
+            # Extract names from the context data
+            names = []
+            for item in context_data:
+                if isinstance(item, dict):
+                    # Get the first value from each dictionary (should be the name)
+                    name = list(item.values())[0].strip()  # Remove extra spaces
+                    names.append(name)
             
-            # Create a prompt for the answer generation
-            answer_prompt = f"""Based on the following database query results, provide a clear and helpful answer to the user's question.
+            if names:
+                context_str = "\n".join([f"- {name}" for name in names])
+                
+                # Create a prompt for the answer generation
+                answer_prompt = f"""Based on the following database query results, provide a clear and helpful answer to the user's question.
 
 Question: {question}
 
-Database Results:
+People found in the database:
 {context_str}
 
-Please provide a natural, conversational answer that lists the people found."""
-            
-            # Get the formatted answer
-            formatted_answer = answer_llm.invoke(answer_prompt)
-            return formatted_answer.content
-        else:
-            # If no context, return the original result
-            return result['result']
+Please provide a natural, conversational answer that clearly lists all the people found."""
+                
+                # Get the formatted answer
+                formatted_answer = answer_llm.invoke(answer_prompt)
+                return formatted_answer.content
+        
+        # If no context data found, return a "no results" message
+        return "No results found for your query."
