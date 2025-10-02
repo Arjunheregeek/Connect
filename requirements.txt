@@ -2,4 +2,10 @@
 # Dependencies for data processing and CSV manipulation
 
 pandas
-neo4j~=5.28.0
+neo4j
+python-dotenv
+langchain
+langchain-community
+langchain-openai
+langchain-neo4j
+openai
