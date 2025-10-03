@@ -6,7 +6,8 @@ from mcp.models.mcp_models import (
     create_error_response, create_success_response, create_tool_call_response,
     MCPErrorCodes, ToolDefinition
 )
-from mcp.schemas.tool_schemas import MCP_TOOLS, validate_tool_input
+from mcp.schemas.tool_schemas import MCP_TOOLS
+from mcp.utils.input_validation import InputValidator
 from mcp.services.bridge_service import bridge_service
 
 logger = logging.getLogger(__name__)
@@ -115,29 +116,87 @@ class MCPHandler:
                     f"Tool '{tool_name}' not found"
                 )
             
-            # Validate input
-            try:
-                validate_tool_input(tool_name, tool_arguments)
-            except ValueError as e:
+            # Validate input using comprehensive validator
+            validation_error = InputValidator.validate_tool_input(tool_name, tool_arguments)
+            if validation_error:
                 return create_error_response(
                     request.id,
-                    MCPErrorCodes.INVALID_PARAMS,
-                    str(e)
+                    validation_error["code"],
+                    validation_error["message"],
+                    validation_error.get("data")
                 )
             
-            # Execute tool
+            # Execute tool with enhanced error handling
             handler = self.tool_handlers[tool_name]
-            result = await handler(tool_arguments)
+            result = await self._execute_tool_with_error_handling(tool_name, handler, tool_arguments)
+            
+            if isinstance(result, dict) and "error" in result:
+                return create_error_response(
+                    request.id,
+                    result["error"]["code"],
+                    result["error"]["message"],
+                    result["error"].get("data")
+                )
             
             return create_tool_call_response(request.id, result)
             
         except Exception as e:
-            logger.error(f"Error calling tool: {e}")
+            logger.error(f"Tool call failed for {tool_name}: {str(e)}", exc_info=True)
             return create_error_response(
                 request.id,
-                MCPErrorCodes.TOOL_EXECUTION_ERROR,
+                MCPErrorCodes.INTERNAL_ERROR,
                 f"Tool execution failed: {str(e)}"
             )
+    
+    async def _execute_tool_with_error_handling(
+        self, 
+        tool_name: str, 
+        handler, 
+        arguments: Dict[str, Any]
+    ) -> Any:
+        """Execute a tool handler with comprehensive error handling"""
+        try:
+            logger.info(f"Executing tool: {tool_name} with arguments: {arguments}")
+            result = await handler(arguments)
+            logger.info(f"Tool {tool_name} executed successfully")
+            return result
+            
+        except KeyError as e:
+            logger.error(f"Missing key in {tool_name}: {str(e)}")
+            return {
+                "error": {
+                    "code": MCPErrorCodes.INVALID_PARAMS,
+                    "message": f"Missing required parameter: {str(e)}",
+                    "data": {"tool_name": tool_name, "missing_key": str(e)}
+                }
+            }
+        except ValueError as e:
+            logger.error(f"Invalid value in {tool_name}: {str(e)}")
+            return {
+                "error": {
+                    "code": MCPErrorCodes.INVALID_PARAMS,
+                    "message": f"Invalid parameter value: {str(e)}",
+                    "data": {"tool_name": tool_name}
+                }
+            }
+        except ConnectionError as e:
+            logger.error(f"Database connection error in {tool_name}: {str(e)}")
+            return {
+                "error": {
+                    "code": MCPErrorCodes.INTERNAL_ERROR,
+                    "message": "Database connection failed",
+                    "data": {"tool_name": tool_name, "category": "database_error"}
+                }
+            }
+        except Exception as e:
+            logger.error(f"Unexpected error in {tool_name}: {str(e)}", exc_info=True)
+            return {
+                "error": {
+                    "code": MCPErrorCodes.INTERNAL_ERROR,
+                    "message": f"Tool execution failed: {str(e)}",
+                    "data": {"tool_name": tool_name, "error_type": type(e).__name__}
+                }
+            }
     
     # Tool handler methods
     async def _handle_find_person_by_name(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:

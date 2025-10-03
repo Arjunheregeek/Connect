@@ -1,0 +1,45 @@
+{
+  "mcp_server": {
+    "name": "connect-professional-network",
+    "description": "Professional Network Knowledge Graph MCP Server for LangGraph Agents",
+    "base_url": "http://localhost:8000",
+    "endpoints": {
+      "health": "/health",
+      "tools_list": "/tools", 
+      "mcp": "/mcp"
+    },
+    "authentication": {
+      "type": "api_key",
+      "header": "X-API-Key",
+      "key": "f435d1c3b1c5e66db047585265bbe4535a4b5f3389e134b54abe482b7b637ac3"
+    },
+    "tools": {
+      "total_count": 15,
+      "categories": {
+        "search": ["find_person_by_name", "natural_language_search"],
+        "skills": ["find_people_by_skill", "get_person_skills", "find_people_with_multiple_skills", "get_skill_popularity"],
+        "companies": ["find_people_by_company", "find_colleagues_at_company", "get_company_employees"],
+        "institutions": ["find_people_by_institution"],
+        "locations": ["find_people_by_location"],
+        "relationships": ["get_person_colleagues"],
+        "experience": ["find_people_by_experience_level"],
+        "profiles": ["get_person_details"],
+        "system": ["health_check"]
+      }
+    },
+    "usage_examples": {
+      "skill_search": {
+        "tool": "find_people_by_skill",
+        "params": {"skill": "python"}
+      },
+      "company_search": {
+        "tool": "find_people_by_company", 
+        "params": {"company": "Google"}
+      },
+      "natural_language": {
+        "tool": "natural_language_search",
+        "params": {"question": "Who has machine learning experience at tech companies?"}
+      }
+    }
+  }
+}
