@@ -8,6 +8,7 @@ from mcp.models.mcp_models import (
 )
 from mcp.schemas.tool_schemas import MCP_TOOLS
 from mcp.utils.input_validation import InputValidator
+from mcp.utils.caching import cache_manager
 from mcp.services.bridge_service import bridge_service
 
 logger = logging.getLogger(__name__)
@@ -126,9 +127,20 @@ class MCPHandler:
                     validation_error.get("data")
                 )
             
-            # Execute tool with enhanced error handling
+            # Check cache first
+            cached_result = await cache_manager.get_cached_result(tool_name, tool_arguments)
+            if cached_result is not None:
+                logger.info(f"Cache hit for tool: {tool_name}")
+                return create_tool_call_response(request.id, cached_result)
+            
+            # Execute tool with enhanced error handling  
             handler = self.tool_handlers[tool_name]
             result = await self._execute_tool_with_error_handling(tool_name, handler, tool_arguments)
+            
+            # Cache successful results
+            if not (isinstance(result, dict) and "error" in result):
+                await cache_manager.cache_result(tool_name, tool_arguments, result)
+                logger.debug(f"Cached result for tool: {tool_name}")
             
             if isinstance(result, dict) and "error" in result:
                 return create_error_response(

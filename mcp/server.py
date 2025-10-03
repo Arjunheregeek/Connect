@@ -158,6 +158,59 @@ async def list_tools(api_key: str = Depends(verify_api_key)):
             }
         )
 
+# Performance monitoring endpoints (require API key)
+@app.get("/stats/cache")
+async def get_cache_stats(api_key: str = Depends(verify_api_key)):
+    """Get cache performance statistics"""
+    try:
+        from mcp.utils.caching import cache_manager
+        stats = await cache_manager.get_all_stats()
+        return JSONResponse(
+            content=stats,
+            headers=SecurityManager.get_security_headers()
+        )
+    except Exception as e:
+        logger.error(f"Error getting cache stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to get cache stats", "message": str(e)}
+        )
+
+@app.get("/stats/database")
+async def get_database_stats(api_key: str = Depends(verify_api_key)):
+    """Get database connection pool statistics"""
+    try:
+        from mcp.utils.connection_pool import connection_pool
+        stats = await connection_pool.get_stats()
+        return JSONResponse(
+            content=stats,
+            headers=SecurityManager.get_security_headers()
+        )
+    except Exception as e:
+        logger.error(f"Error getting database stats: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to get database stats", "message": str(e)}
+        )
+
+@app.post("/admin/cache/clear")
+async def clear_cache(api_key: str = Depends(verify_api_key)):
+    """Clear all caches (admin operation)"""
+    try:
+        from mcp.utils.caching import cache_manager
+        await cache_manager.clear_all_caches()
+        logger.info("All caches cleared by admin request")
+        return JSONResponse(
+            content={"message": "All caches cleared successfully"},
+            headers=SecurityManager.get_security_headers()
+        )
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Failed to clear cache", "message": str(e)}
+        )
+
 # Development endpoint for testing (only in debug mode)
 if settings.debug:
     @app.get("/debug/info")
