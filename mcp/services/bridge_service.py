@@ -145,6 +145,51 @@ class ConnectBridgeService:
         self._ensure_initialized()
         return self._query_manager.get_person_details(person_name)
 
+    async def get_person_job_descriptions(self, person_name: str) -> List[Dict[str, Any]]:
+        """Get all job descriptions for a person with company and role details"""
+        self._ensure_initialized()
+        return self._query_manager.get_person_job_descriptions(person_name)
+
+    async def search_job_descriptions_by_keywords(self, keywords: List[str], match_type: str = "any") -> List[Dict[str, Any]]:
+        """Search for people based on keywords in their job descriptions"""
+        self._ensure_initialized()
+        return self._query_manager.search_job_descriptions_by_keywords(keywords, match_type)
+
+    async def find_technical_skills_in_descriptions(self, tech_keywords: List[str]) -> List[Dict[str, Any]]:
+        """Find people who mention specific technical skills in their job descriptions"""
+        self._ensure_initialized()
+        return self._query_manager.find_technical_skills_in_descriptions(tech_keywords)
+
+    async def find_leadership_indicators(self) -> List[Dict[str, Any]]:
+        """Find people with leadership indicators in their job descriptions"""
+        self._ensure_initialized()
+        return self._query_manager.find_leadership_indicators()
+
+    async def find_achievement_patterns(self) -> List[Dict[str, Any]]:
+        """Find people with quantifiable achievements in their job descriptions"""
+        self._ensure_initialized()
+        return self._query_manager.find_achievement_patterns()
+
+    async def analyze_career_progression(self, person_name: str) -> List[Dict[str, Any]]:
+        """Analyze a person's career progression"""
+        self._ensure_initialized()
+        return self._query_manager.analyze_career_progression(person_name)
+
+    async def find_domain_experts(self, domain_keywords: List[str]) -> List[Dict[str, Any]]:
+        """Find people with deep domain expertise"""
+        self._ensure_initialized()
+        return self._query_manager.find_domain_experts(domain_keywords)
+
+    async def find_similar_career_paths(self, reference_person_name: str, similarity_threshold: int = 2) -> List[Dict[str, Any]]:
+        """Find people with similar career paths"""
+        self._ensure_initialized()
+        return self._query_manager.find_similar_career_paths(reference_person_name, similarity_threshold)
+
+    async def find_role_transition_patterns(self, from_role_keywords: List[str], to_role_keywords: List[str]) -> List[Dict[str, Any]]:
+        """Find people who transitioned between role types"""
+        self._ensure_initialized()
+        return self._query_manager.find_role_transition_patterns(from_role_keywords, to_role_keywords)
+
     # Natural Language Search Methods
     async def natural_language_search(self, question: str) -> str:
         """Perform natural language search"""

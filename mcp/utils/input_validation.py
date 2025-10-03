@@ -280,6 +280,169 @@ class InputValidator:
             return MCPErrorHandler.format_validation_error("person_name", "Missing required field 'person_name'")
         
         return cls._validate_person_name(input_data["person_name"])
+
+    @classmethod
+    def _validate_get_person_job_descriptions(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate get_person_job_descriptions input"""
+        if "person_name" not in input_data:
+            return MCPErrorHandler.format_validation_error("person_name", "Missing required field 'person_name'")
+        
+        return cls._validate_person_name(input_data["person_name"])
+
+    @classmethod
+    def _validate_search_job_descriptions_by_keywords(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate search_job_descriptions_by_keywords input"""
+        if "keywords" not in input_data:
+            return MCPErrorHandler.format_validation_error("keywords", "Missing required field 'keywords'")
+        
+        keywords = input_data["keywords"]
+        if not isinstance(keywords, list):
+            return MCPErrorHandler.format_validation_error("keywords", "Keywords must be an array")
+        
+        if len(keywords) < 1:
+            return MCPErrorHandler.format_validation_error("keywords", "Keywords list cannot be empty")
+        
+        if len(keywords) > 10:
+            return MCPErrorHandler.format_validation_error("keywords", "Keywords list cannot have more than 10 items")
+        
+        for i, keyword in enumerate(keywords):
+            if not isinstance(keyword, str):
+                return MCPErrorHandler.format_validation_error(f"keywords[{i}]", "Each keyword must be a string")
+            if len(keyword.strip()) < 1:
+                return MCPErrorHandler.format_validation_error(f"keywords[{i}]", "Keyword cannot be empty")
+        
+        if "match_type" in input_data:
+            match_type = input_data["match_type"]
+            if match_type not in cls.VALID_MATCH_TYPES:
+                return MCPErrorHandler.format_validation_error("match_type", f"Match type must be one of: {', '.join(cls.VALID_MATCH_TYPES)}")
+        
+        return None
+
+    @classmethod
+    def _validate_find_technical_skills_in_descriptions(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate find_technical_skills_in_descriptions input"""
+        if "tech_keywords" not in input_data:
+            return MCPErrorHandler.format_validation_error("tech_keywords", "Missing required field 'tech_keywords'")
+        
+        tech_keywords = input_data["tech_keywords"]
+        if not isinstance(tech_keywords, list):
+            return MCPErrorHandler.format_validation_error("tech_keywords", "Tech keywords must be an array")
+        
+        if len(tech_keywords) < 1:
+            return MCPErrorHandler.format_validation_error("tech_keywords", "Tech keywords list cannot be empty")
+        
+        if len(tech_keywords) > 10:
+            return MCPErrorHandler.format_validation_error("tech_keywords", "Tech keywords list cannot have more than 10 items")
+        
+        for i, keyword in enumerate(tech_keywords):
+            if not isinstance(keyword, str):
+                return MCPErrorHandler.format_validation_error(f"tech_keywords[{i}]", "Each tech keyword must be a string")
+            if len(keyword.strip()) < 1:
+                return MCPErrorHandler.format_validation_error(f"tech_keywords[{i}]", "Tech keyword cannot be empty")
+        
+        return None
+
+    @classmethod
+    def _validate_find_leadership_indicators(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate find_leadership_indicators input (no parameters required)"""
+        return None
+
+    @classmethod
+    def _validate_find_achievement_patterns(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate find_achievement_patterns input (no parameters required)"""
+        return None
+
+    @classmethod
+    def _validate_analyze_career_progression(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate analyze_career_progression input"""
+        if "person_name" not in input_data:
+            return MCPErrorHandler.format_validation_error("person_name", "Missing required field 'person_name'")
+        
+        return cls._validate_person_name(input_data["person_name"])
+
+    @classmethod
+    def _validate_find_domain_experts(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate find_domain_experts input"""
+        if "domain_keywords" not in input_data:
+            return MCPErrorHandler.format_validation_error("domain_keywords", "Missing required field 'domain_keywords'")
+        
+        domain_keywords = input_data["domain_keywords"]
+        if not isinstance(domain_keywords, list):
+            return MCPErrorHandler.format_validation_error("domain_keywords", "Domain keywords must be an array")
+        
+        if len(domain_keywords) < 1:
+            return MCPErrorHandler.format_validation_error("domain_keywords", "Domain keywords list cannot be empty")
+        
+        if len(domain_keywords) > 5:
+            return MCPErrorHandler.format_validation_error("domain_keywords", "Domain keywords list cannot have more than 5 items")
+        
+        for i, keyword in enumerate(domain_keywords):
+            if not isinstance(keyword, str):
+                return MCPErrorHandler.format_validation_error(f"domain_keywords[{i}]", "Each domain keyword must be a string")
+            if len(keyword.strip()) < 1:
+                return MCPErrorHandler.format_validation_error(f"domain_keywords[{i}]", "Domain keyword cannot be empty")
+        
+        return None
+
+    @classmethod
+    def _validate_find_similar_career_paths(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate find_similar_career_paths input"""
+        if "reference_person_name" not in input_data:
+            return MCPErrorHandler.format_validation_error("reference_person_name", "Missing required field 'reference_person_name'")
+        
+        error = cls._validate_person_name(input_data["reference_person_name"])
+        if error:
+            return error
+        
+        if "similarity_threshold" in input_data:
+            threshold = input_data["similarity_threshold"]
+            if not isinstance(threshold, int):
+                return MCPErrorHandler.format_validation_error("similarity_threshold", "Similarity threshold must be an integer")
+            if threshold < 1:
+                return MCPErrorHandler.format_validation_error("similarity_threshold", "Similarity threshold must be at least 1")
+            if threshold > 10:
+                return MCPErrorHandler.format_validation_error("similarity_threshold", "Similarity threshold cannot exceed 10")
+        
+        return None
+
+    @classmethod
+    def _validate_find_role_transition_patterns(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """Validate find_role_transition_patterns input"""
+        if "from_role_keywords" not in input_data:
+            return MCPErrorHandler.format_validation_error("from_role_keywords", "Missing required field 'from_role_keywords'")
+        
+        if "to_role_keywords" not in input_data:
+            return MCPErrorHandler.format_validation_error("to_role_keywords", "Missing required field 'to_role_keywords'")
+        
+        # Validate from_role_keywords
+        from_keywords = input_data["from_role_keywords"]
+        if not isinstance(from_keywords, list):
+            return MCPErrorHandler.format_validation_error("from_role_keywords", "From role keywords must be an array")
+        
+        if len(from_keywords) < 1:
+            return MCPErrorHandler.format_validation_error("from_role_keywords", "From role keywords list cannot be empty")
+        
+        for i, keyword in enumerate(from_keywords):
+            if not isinstance(keyword, str):
+                return MCPErrorHandler.format_validation_error(f"from_role_keywords[{i}]", "Each from role keyword must be a string")
+            if len(keyword.strip()) < 1:
+                return MCPErrorHandler.format_validation_error(f"from_role_keywords[{i}]", "From role keyword cannot be empty")
+        
+        # Validate to_role_keywords
+        to_keywords = input_data["to_role_keywords"]
+        if not isinstance(to_keywords, list):
+            return MCPErrorHandler.format_validation_error("to_role_keywords", "To role keywords must be an array")
+        
+        if len(to_keywords) < 1:
+            return MCPErrorHandler.format_validation_error("to_role_keywords", "To role keywords list cannot be empty")
+        
+        for i, keyword in enumerate(to_keywords):
+            if not isinstance(keyword, str):
+                return MCPErrorHandler.format_validation_error(f"to_role_keywords[{i}]", "Each to role keyword must be a string")
+            if len(keyword.strip()) < 1:
+                return MCPErrorHandler.format_validation_error(f"to_role_keywords[{i}]", "To role keyword cannot be empty")
+        
+        return None
     
     @classmethod
     def _validate_natural_language_search(cls, input_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:

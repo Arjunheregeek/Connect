@@ -246,6 +246,142 @@ MCP_TOOLS = [
             "properties": {},
             "required": []
         }
+    },
+    {
+        "name": "get_person_job_descriptions",
+        "description": "Get all job descriptions for a person with company and role details - foundation for technical skill discovery, behavioral analysis, and career progression",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "person_name": {
+                    "type": "string",
+                    "description": "The name of the person to get job descriptions for"
+                }
+            },
+            "required": ["person_name"]
+        }
+    },
+    {
+        "name": "search_job_descriptions_by_keywords",
+        "description": "Search for people based on keywords in their job descriptions - useful for finding technical skills, behavioral patterns, or specific experience",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of keywords to search for in job descriptions"
+                },
+                "match_type": {
+                    "type": "string",
+                    "enum": ["any", "all"],
+                    "default": "any",
+                    "description": "Match 'any' keyword (OR) or 'all' keywords (AND)"
+                }
+            },
+            "required": ["keywords"]
+        }
+    },
+    {
+        "name": "find_technical_skills_in_descriptions",
+        "description": "Find people who mention specific technical skills in their job descriptions - goes beyond structured skills to find contextual technical mentions",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tech_keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of technical terms to search for (e.g., python, kubernetes, machine learning)"
+                }
+            },
+            "required": ["tech_keywords"]
+        }
+    },
+    {
+        "name": "find_leadership_indicators",
+        "description": "Find people with leadership indicators in their job descriptions - looks for management, team lead, and leadership-related keywords",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "find_achievement_patterns",
+        "description": "Find people with quantifiable achievements in their job descriptions - looks for metrics, improvements, and measurable impact",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": []
+        }
+    },
+    {
+        "name": "analyze_career_progression",
+        "description": "Analyze a person's career progression by examining job titles and descriptions over time - shows how roles, responsibilities, and seniority evolved",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "person_name": {
+                    "type": "string",
+                    "description": "The name of the person to analyze career progression for"
+                }
+            },
+            "required": ["person_name"]
+        }
+    },
+    {
+        "name": "find_domain_experts",
+        "description": "Find people with deep domain expertise based on job description analysis",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "domain_keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of domain-specific terms (e.g., fintech, healthcare, e-commerce)"
+                }
+            },
+            "required": ["domain_keywords"]
+        }
+    },
+    {
+        "name": "find_similar_career_paths",
+        "description": "Find people with similar career paths to a reference person - compares job titles, companies, and progression patterns",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "reference_person_name": {
+                    "type": "string",
+                    "description": "The person to compare against"
+                },
+                "similarity_threshold": {
+                    "type": "integer",
+                    "default": 2,
+                    "description": "Minimum number of similar elements (companies/roles)"
+                }
+            },
+            "required": ["reference_person_name"]
+        }
+    },
+    {
+        "name": "find_role_transition_patterns",
+        "description": "Find people who transitioned from one type of role to another - useful for understanding career pivot patterns",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "from_role_keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Keywords for the starting role type"
+                },
+                "to_role_keywords": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Keywords for the target role type"
+                }
+            },
+            "required": ["from_role_keywords", "to_role_keywords"]
+        }
     }
 ]
 

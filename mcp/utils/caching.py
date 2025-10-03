@@ -153,6 +153,7 @@ class CacheManager:
             # Dynamic data - people's current status might change
             "find_person_by_name": "dynamic",
             "get_person_details": "dynamic",
+            "get_person_job_descriptions": "dynamic",
             "natural_language_search": "dynamic",
             
             # Standard caching - skills and company data
@@ -163,12 +164,20 @@ class CacheManager:
             "get_person_colleagues": "standard",
             "find_people_by_experience_level": "standard",
             "get_company_employees": "standard",
+            "search_job_descriptions_by_keywords": "standard",
+            "find_technical_skills_in_descriptions": "standard",
+            "analyze_career_progression": "standard",
             
             # Stable data - institutional and location data changes rarely
             "find_people_by_institution": "stable",
             "find_people_by_location": "stable",
             "find_people_with_multiple_skills": "stable",
             "get_skill_popularity": "stable",
+            "find_leadership_indicators": "stable",
+            "find_achievement_patterns": "stable",
+            "find_domain_experts": "stable",
+            "find_similar_career_paths": "stable",
+            "find_role_transition_patterns": "stable",
             
             # No caching for system tools
             "health_check": None

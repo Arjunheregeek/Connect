@@ -31,6 +31,15 @@ class MCPHandler:
             "get_company_employees": self._handle_get_company_employees,
             "get_skill_popularity": self._handle_get_skill_popularity,
             "get_person_details": self._handle_get_person_details,
+            "get_person_job_descriptions": self._handle_get_person_job_descriptions,
+            "search_job_descriptions_by_keywords": self._handle_search_job_descriptions_by_keywords,
+            "find_technical_skills_in_descriptions": self._handle_find_technical_skills_in_descriptions,
+            "find_leadership_indicators": self._handle_find_leadership_indicators,
+            "find_achievement_patterns": self._handle_find_achievement_patterns,
+            "analyze_career_progression": self._handle_analyze_career_progression,
+            "find_domain_experts": self._handle_find_domain_experts,
+            "find_similar_career_paths": self._handle_find_similar_career_paths,
+            "find_role_transition_patterns": self._handle_find_role_transition_patterns,
             "natural_language_search": self._handle_natural_language_search,
             "health_check": self._handle_health_check
         }
@@ -461,6 +470,210 @@ class MCPHandler:
                 "type": "text",
                 "text": f"Person '{person_name}' not found"
             }]
+
+    async def _handle_get_person_job_descriptions(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle get_person_job_descriptions tool"""
+        person_name = arguments["person_name"]
+        results = await bridge_service.get_person_job_descriptions(person_name)
+        
+        if results:
+            details = [f"Job descriptions for {results[0]['person_name']}:"]
+            details.append("")
+            
+            for job in results:
+                details.append(f"Company: {job['company_name']}")
+                details.append(f"Title: {job['job_title']}")
+                if job.get('start_date') and job.get('end_date'):
+                    details.append(f"Period: {job['start_date']} to {job['end_date']}")
+                elif job.get('start_date'):
+                    details.append(f"Start Date: {job['start_date']}")
+                if job.get('duration_months'):
+                    details.append(f"Duration: {job['duration_months']} months")
+                if job.get('job_location'):
+                    details.append(f"Location: {job['job_location']}")
+                if job.get('job_description'):
+                    details.append(f"Description: {job['job_description']}")
+                details.append("-" * 50)
+            
+            return [{
+                "type": "text",
+                "text": "\n".join(details)
+            }]
+        else:
+            return [{
+                "type": "text", 
+                "text": f"No job descriptions found for '{person_name}'"
+            }]
+
+    async def _handle_search_job_descriptions_by_keywords(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle search_job_descriptions_by_keywords tool"""
+        keywords = arguments["keywords"]
+        match_type = arguments.get("match_type", "any")
+        results = await bridge_service.search_job_descriptions_by_keywords(keywords, match_type)
+        
+        if results:
+            details = [f"Found {len(results)} people matching keywords {keywords} ({match_type} match):"]
+            details.append("")
+            
+            for person in results:
+                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
+                details.append(f"  Company: {person['company_name']}")
+                details.append(f"  Role: {person['job_title']}")
+                if person.get('job_description'):
+                    desc = person['job_description'][:200] + "..." if len(person['job_description']) > 200 else person['job_description']
+                    details.append(f"  Description: {desc}")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": f"No people found with keywords: {', '.join(keywords)}"}]
+
+    async def _handle_find_technical_skills_in_descriptions(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_technical_skills_in_descriptions tool"""
+        tech_keywords = arguments["tech_keywords"]
+        results = await bridge_service.find_technical_skills_in_descriptions(tech_keywords)
+        
+        if results:
+            details = [f"Found {len(results)} people with technical skills {tech_keywords} in job descriptions:"]
+            details.append("")
+            
+            for person in results:
+                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
+                details.append(f"  Company: {person['company_name']} | Role: {person['job_title']}")
+                if person.get('start_date') and person.get('end_date'):
+                    details.append(f"  Period: {person['start_date']} to {person['end_date']}")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": f"No people found with technical skills: {', '.join(tech_keywords)}"}]
+
+    async def _handle_find_leadership_indicators(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_leadership_indicators tool"""
+        results = await bridge_service.find_leadership_indicators()
+        
+        if results:
+            details = [f"Found {len(results)} people with leadership indicators:"]
+            details.append("")
+            
+            for person in results[:20]:  # Limit to top 20
+                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
+                details.append(f"  Company: {person['company_name']} | Role: {person['job_title']}")
+                if person.get('duration_months'):
+                    details.append(f"  Duration: {person['duration_months']} months")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": "No people found with leadership indicators"}]
+
+    async def _handle_find_achievement_patterns(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_achievement_patterns tool"""
+        results = await bridge_service.find_achievement_patterns()
+        
+        if results:
+            details = [f"Found {len(results)} people with quantifiable achievements:"]
+            details.append("")
+            
+            for person in results[:20]:  # Limit to top 20
+                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
+                details.append(f"  Company: {person['company_name']} | Role: {person['job_title']}")
+                if person.get('start_date') and person.get('end_date'):
+                    details.append(f"  Period: {person['start_date']} to {person['end_date']}")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": "No people found with achievement patterns"}]
+
+    async def _handle_analyze_career_progression(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle analyze_career_progression tool"""
+        person_name = arguments["person_name"]
+        results = await bridge_service.analyze_career_progression(person_name)
+        
+        if results:
+            details = [f"Career progression for {results[0]['person_name']}:"]
+            details.append("")
+            
+            for i, job in enumerate(results, 1):
+                details.append(f"{i}. {job['company_name']} - {job['job_title']}")
+                if job.get('start_date') and job.get('end_date'):
+                    details.append(f"   Period: {job['start_date']} to {job['end_date']}")
+                elif job.get('start_date'):
+                    details.append(f"   Start: {job['start_date']}")
+                if job.get('duration_months'):
+                    details.append(f"   Duration: {job['duration_months']} months")
+                if job.get('job_location'):
+                    details.append(f"   Location: {job['job_location']}")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": f"No career progression found for '{person_name}'"}]
+
+    async def _handle_find_domain_experts(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_domain_experts tool"""
+        domain_keywords = arguments["domain_keywords"]
+        results = await bridge_service.find_domain_experts(domain_keywords)
+        
+        if results:
+            details = [f"Found {len(results)} domain experts for {domain_keywords}:"]
+            details.append("")
+            
+            for person in results:
+                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
+                details.append(f"  Domain Jobs: {person['domain_jobs']} | Total Experience: {person.get('total_experience', 'N/A')} months")
+                if person.get('companies'):
+                    companies = person['companies'][:5]  # Show first 5 companies
+                    details.append(f"  Companies: {', '.join(companies)}")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": f"No domain experts found for: {', '.join(domain_keywords)}"}]
+
+    async def _handle_find_similar_career_paths(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_similar_career_paths tool"""
+        reference_person_name = arguments["reference_person_name"]
+        similarity_threshold = arguments.get("similarity_threshold", 2)
+        results = await bridge_service.find_similar_career_paths(reference_person_name, similarity_threshold)
+        
+        if results:
+            details = [f"Found {len(results)} people with similar career paths to {reference_person_name}:"]
+            details.append("")
+            
+            for person in results:
+                details.append(f"- {person['similar_person']} ({person.get('headline', 'N/A')})")
+                details.append(f"  Similarity Score: {person['similarity_score']}")
+                if person.get('common_companies'):
+                    details.append(f"  Common Companies: {', '.join(person['common_companies'])}")
+                if person.get('common_titles'):
+                    details.append(f"  Common Roles: {', '.join(person['common_titles'])}")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": f"No similar career paths found for '{reference_person_name}'"}]
+
+    async def _handle_find_role_transition_patterns(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_role_transition_patterns tool"""
+        from_role_keywords = arguments["from_role_keywords"]
+        to_role_keywords = arguments["to_role_keywords"]
+        results = await bridge_service.find_role_transition_patterns(from_role_keywords, to_role_keywords)
+        
+        if results:
+            details = [f"Found {len(results)} people who transitioned from {from_role_keywords} to {to_role_keywords}:"]
+            details.append("")
+            
+            for person in results:
+                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
+                details.append(f"  FROM: {person['from_role']} at {person['from_company']} ({person.get('from_start', 'N/A')})")
+                details.append(f"  TO: {person['to_role']} at {person['to_company']} ({person.get('to_start', 'N/A')})")
+                details.append("")
+            
+            return [{"type": "text", "text": "\n".join(details)}]
+        else:
+            return [{"type": "text", "text": f"No role transitions found from {from_role_keywords} to {to_role_keywords}"}]
 
     async def _handle_health_check(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle health_check tool"""
