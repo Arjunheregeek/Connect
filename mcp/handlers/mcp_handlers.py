@@ -20,6 +20,15 @@ class MCPHandler:
             "find_people_by_skill": self._handle_find_people_by_skill,
             "find_people_by_company": self._handle_find_people_by_company,
             "find_colleagues_at_company": self._handle_find_colleagues_at_company,
+            "find_people_by_institution": self._handle_find_people_by_institution,
+            "find_people_by_location": self._handle_find_people_by_location,
+            "get_person_skills": self._handle_get_person_skills,
+            "find_people_with_multiple_skills": self._handle_find_people_with_multiple_skills,
+            "get_person_colleagues": self._handle_get_person_colleagues,
+            "find_people_by_experience_level": self._handle_find_people_by_experience_level,
+            "get_company_employees": self._handle_get_company_employees,
+            "get_skill_popularity": self._handle_get_skill_popularity,
+            "get_person_details": self._handle_get_person_details,
             "natural_language_search": self._handle_natural_language_search,
             "health_check": self._handle_health_check
         }
@@ -198,6 +207,190 @@ class MCPHandler:
             "text": result
         }]
     
+    async def _handle_find_people_by_institution(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_people_by_institution tool"""
+        institution_name = arguments["institution_name"]
+        results = await bridge_service.find_people_by_institution(institution_name)
+        
+        return [{
+            "type": "text",
+            "text": f"Found {len(results)} people who studied at '{institution_name}':" +
+                   "\n" + "\n".join([
+                       f"- {person['name']} ({person['headline']})"
+                       for person in results
+                   ]) if results else f"No people found who studied at '{institution_name}'"
+        }]
+    
+    async def _handle_find_people_by_location(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_people_by_location tool"""
+        location = arguments["location"]
+        results = await bridge_service.find_people_by_location(location)
+        
+        return [{
+            "type": "text",
+            "text": f"Found {len(results)} people in '{location}':" +
+                   "\n" + "\n".join([
+                       f"- {person['name']} ({person['headline']}) - {person.get('location', 'N/A')}"
+                       for person in results
+                   ]) if results else f"No people found in '{location}'"
+        }]
+    
+    async def _handle_get_person_skills(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle get_person_skills tool"""
+        person_name = arguments["person_name"]
+        results = await bridge_service.get_person_skills(person_name)
+        
+        if results:
+            person = results[0]
+            skills = person.get('skills', [])
+            return [{
+                "type": "text",
+                "text": f"Skills for {person['person_name']}:\n" +
+                       "\n".join([f"- {skill}" for skill in skills]) if skills else f"No skills found for {person['person_name']}"
+            }]
+        else:
+            return [{
+                "type": "text",
+                "text": f"Person '{person_name}' not found"
+            }]
+    
+    async def _handle_find_people_with_multiple_skills(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_people_with_multiple_skills tool"""
+        skills_list = arguments["skills_list"]
+        match_type = arguments.get("match_type", "any")
+        results = await bridge_service.find_people_with_multiple_skills(skills_list, match_type)
+        
+        skills_text = "', '".join(skills_list)
+        match_text = "all" if match_type == "all" else "any"
+        
+        return [{
+            "type": "text",
+            "text": f"Found {len(results)} people with {match_text} of these skills: '{skills_text}':" +
+                   "\n" + "\n".join([
+                       f"- {person['name']} ({person['headline']})"
+                       for person in results
+                   ]) if results else f"No people found with {match_text} of these skills: '{skills_text}'"
+        }]
+    
+    async def _handle_get_person_colleagues(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle get_person_colleagues tool""" 
+        person_name = arguments["person_name"]
+        results = await bridge_service.get_person_colleagues(person_name)
+        
+        if results:
+            # Group by company
+            by_company = {}
+            for colleague in results:
+                company = colleague['company_name']
+                if company not in by_company:
+                    by_company[company] = []
+                by_company[company].append(f"{colleague['colleague_name']} ({colleague['colleague_headline']})")
+            
+            text_parts = [f"Colleagues of '{person_name}':"]
+            for company, colleagues in by_company.items():
+                text_parts.append(f"\nAt {company}:")
+                for colleague in colleagues:
+                    text_parts.append(f"  - {colleague}")
+            
+            return [{
+                "type": "text",
+                "text": "\n".join(text_parts)
+            }]
+        else:
+            return [{
+                "type": "text", 
+                "text": f"No colleagues found for '{person_name}'"
+            }]
+    
+    async def _handle_find_people_by_experience_level(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle find_people_by_experience_level tool"""
+        min_months = arguments.get("min_months")
+        max_months = arguments.get("max_months")
+        results = await bridge_service.find_people_by_experience_level(min_months, max_months)
+        
+        # Build description
+        desc_parts = []
+        if min_months is not None:
+            desc_parts.append(f"at least {min_months} months")
+        if max_months is not None:
+            desc_parts.append(f"at most {max_months} months")
+        
+        experience_desc = " and ".join(desc_parts) if desc_parts else "any amount"
+        
+        return [{
+            "type": "text",
+            "text": f"Found {len(results)} people with {experience_desc} of experience:" +
+                   "\n" + "\n".join([
+                       f"- {person['name']} ({person['headline']}) - {person.get('experience_months', 'N/A')} months"
+                       for person in results
+                   ]) if results else f"No people found with {experience_desc} of experience"
+        }]
+    
+    async def _handle_get_company_employees(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle get_company_employees tool"""
+        company_name = arguments["company_name"]
+        results = await bridge_service.get_company_employees(company_name)
+        
+        return [{
+            "type": "text",
+            "text": f"Found {len(results)} employees at '{company_name}':" +
+                   "\n" + "\n".join([
+                       f"- {person['name']} ({person['headline']})"
+                       for person in results
+                   ]) if results else f"No employees found at '{company_name}'"
+        }]
+    
+    async def _handle_get_skill_popularity(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle get_skill_popularity tool"""
+        limit = arguments.get("limit", 20)
+        results = await bridge_service.get_skill_popularity(limit)
+        
+        return [{
+            "type": "text",
+            "text": f"Top {len(results)} most popular skills:" +
+                   "\n" + "\n".join([
+                       f"{i+1}. {skill['skill_name']} ({skill['person_count']} people)"
+                       for i, skill in enumerate(results)
+                   ]) if results else "No skill data found"
+        }]
+    
+    async def _handle_get_person_details(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Handle get_person_details tool"""
+        person_name = arguments["person_name"]
+        results = await bridge_service.get_person_details(person_name)
+        
+        if results:
+            person = results[0]
+            details = [f"Details for {person['name']}:"]
+            details.append(f"Headline: {person.get('headline', 'N/A')}")
+            details.append(f"Location: {person.get('location', 'N/A')}")
+            details.append(f"Experience: {person.get('experience_months', 'N/A')} months")
+            
+            if person.get('skills'):
+                skills = [skill for skill in person['skills'] if skill]
+                if skills:
+                    details.append(f"Skills: {', '.join(skills)}")
+            
+            if person.get('companies'):
+                companies = [company for company in person['companies'] if company]
+                if companies:
+                    details.append(f"Companies: {', '.join(companies)}")
+            
+            if person.get('institutions'):
+                institutions = [inst for inst in person['institutions'] if inst]
+                if institutions:
+                    details.append(f"Education: {', '.join(institutions)}")
+            
+            return [{
+                "type": "text",
+                "text": "\n".join(details)
+            }]
+        else:
+            return [{
+                "type": "text",
+                "text": f"Person '{person_name}' not found"
+            }]
+
     async def _handle_health_check(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Handle health_check tool"""
         health_status = await bridge_service.health_check()

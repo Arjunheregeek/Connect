@@ -99,6 +99,52 @@ class ConnectBridgeService:
         self._ensure_initialized()
         return self._query_manager.find_colleagues_at_company(person_id, company_name)
     
+    # Additional Query Manager Methods
+    async def find_people_by_institution(self, institution_name: str) -> List[Dict[str, Any]]:
+        """Find people who studied at a specific institution"""
+        self._ensure_initialized()
+        return self._query_manager.find_people_by_institution(institution_name)
+    
+    async def find_people_by_location(self, location: str) -> List[Dict[str, Any]]:
+        """Find people in a specific location"""
+        self._ensure_initialized()
+        return self._query_manager.find_people_by_location(location)
+    
+    async def get_person_skills(self, person_name: str) -> List[Dict[str, Any]]:
+        """Get all skills for a specific person"""
+        self._ensure_initialized()
+        return self._query_manager.get_person_skills(person_name)
+    
+    async def find_people_with_multiple_skills(self, skills_list: List[str], match_type: str = "any") -> List[Dict[str, Any]]:
+        """Find people with multiple skills"""
+        self._ensure_initialized()
+        return self._query_manager.find_people_with_multiple_skills(skills_list, match_type)
+    
+    async def get_person_colleagues(self, person_name: str) -> List[Dict[str, Any]]:
+        """Get all colleagues of a person"""
+        self._ensure_initialized()
+        return self._query_manager.get_person_colleagues(person_name)
+    
+    async def find_people_by_experience_level(self, min_months: Optional[int] = None, max_months: Optional[int] = None) -> List[Dict[str, Any]]:
+        """Find people by experience level"""
+        self._ensure_initialized()
+        return self._query_manager.find_people_by_experience_level(min_months, max_months)
+    
+    async def get_company_employees(self, company_name: str) -> List[Dict[str, Any]]:
+        """Get all employees of a company"""
+        self._ensure_initialized()
+        return self._query_manager.get_company_employees(company_name)
+    
+    async def get_skill_popularity(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """Get most popular skills"""
+        self._ensure_initialized()
+        return self._query_manager.get_skill_popularity(limit)
+    
+    async def get_person_details(self, person_name: str) -> List[Dict[str, Any]]:
+        """Get comprehensive person details"""
+        self._ensure_initialized()
+        return self._query_manager.get_person_details(person_name)
+
     # Natural Language Search Methods
     async def natural_language_search(self, question: str) -> str:
         """Perform natural language search"""

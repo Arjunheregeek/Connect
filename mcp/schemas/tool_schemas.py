@@ -101,6 +101,144 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "find_people_by_institution",
+        "description": "Find all people who studied at a specific institution or university",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "institution_name": {
+                    "type": "string",
+                    "description": "The name of the institution/university to search for"
+                }
+            },
+            "required": ["institution_name"]
+        }
+    },
+    {
+        "name": "find_people_by_location", 
+        "description": "Find all people in a specific location or city",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "The location/city to search for"
+                }
+            },
+            "required": ["location"]
+        }
+    },
+    {
+        "name": "get_person_skills",
+        "description": "Get all skills for a specific person",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "person_name": {
+                    "type": "string",
+                    "description": "The name of the person to get skills for"
+                }
+            },
+            "required": ["person_name"]
+        }
+    },
+    {
+        "name": "find_people_with_multiple_skills",
+        "description": "Find people who have multiple specific skills with AND/OR logic",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skills_list": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of skills to search for"
+                },
+                "match_type": {
+                    "type": "string",
+                    "enum": ["any", "all"],
+                    "default": "any",
+                    "description": "Match 'any' skill (OR) or 'all' skills (AND)"
+                }
+            },
+            "required": ["skills_list"]
+        }
+    },
+    {
+        "name": "get_person_colleagues",
+        "description": "Get all colleagues of a person across all companies they worked at",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "person_name": {
+                    "type": "string",
+                    "description": "The name of the person to find colleagues for"
+                }
+            },
+            "required": ["person_name"]
+        }
+    },
+    {
+        "name": "find_people_by_experience_level",
+        "description": "Find people based on their total work experience in months",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "min_months": {
+                    "type": "integer",
+                    "description": "Minimum experience in months"
+                },
+                "max_months": {
+                    "type": "integer", 
+                    "description": "Maximum experience in months"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_company_employees",
+        "description": "Get all employees (past and present) of a specific company",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "company_name": {
+                    "type": "string",
+                    "description": "The name of the company to get employees for"
+                }
+            },
+            "required": ["company_name"]
+        }
+    },
+    {
+        "name": "get_skill_popularity",
+        "description": "Get the most popular skills by counting how many people have each skill",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "default": 20,
+                    "description": "Maximum number of skills to return"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "get_person_details",
+        "description": "Get comprehensive details about a person including skills, companies, and education",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "person_name": {
+                    "type": "string",
+                    "description": "The name of the person to get details for"
+                }
+            },
+            "required": ["person_name"]
+        }
+    },
+    {
         "name": "health_check",
         "description": "Check the health status of the knowledge graph database and services",
         "inputSchema": {
