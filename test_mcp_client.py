@@ -68,7 +68,7 @@ async def test_mcp_client():
             # Test 3: Simple Tool Call
             print("\n3. Testing Simple Tool Call...")
             
-            search_response = await client.find_people_by_skill("python")
+            search_response = await client.tools.find_people_by_skill("python")
             if search_response.success:
                 # MCP server wraps results in ToolCallResult format: {"content": [...], "isError": false}
                 tool_result = search_response.data
@@ -106,7 +106,7 @@ async def test_mcp_client():
             
             # Test 4: Natural Language Search
             print("\n4. Testing Natural Language Search...")
-            nl_response = await client.natural_language_search("Who are the top 3 Python developers?")
+            nl_response = await client.tools.natural_language_search("Who are the top 3 Python developers?")
             if nl_response.success:
                 tool_result = nl_response.data
                 if tool_result and "content" in tool_result:
