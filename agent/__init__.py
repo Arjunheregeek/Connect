@@ -14,6 +14,7 @@ Main Components:
 from .mcp_client import MCPClient, MCPResponse, MCPClientError
 from .mcp_client import MCPClientConfig, ToolCall
 from .state import AgentState, WorkflowStatus, StateManager, PlanStep, ExecutionPlan
+from .nodes import planner_node, tool_executor_node, synthesizer_node
 
 __all__ = [
     # MCP Client
@@ -28,5 +29,10 @@ __all__ = [
     'WorkflowStatus',
     'StateManager', 
     'PlanStep',
-    'ExecutionPlan'
+    'ExecutionPlan',
+    
+    # Workflow Nodes
+    'planner_node',
+    'tool_executor_node',
+    'synthesizer_node'
 ]
