@@ -20,6 +20,7 @@ openai
 # LangGraph Agent Dependencies
 langgraph
 httpx
+aiohttp
 
 # MCP Server Dependencies
 fastapi
