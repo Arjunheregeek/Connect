@@ -1,11 +1,35 @@
 # Requirements file for the project
 # Dependencies for data processing and CSV manipulation
 
+# Core Data Processing
 pandas
+
+# Database
 neo4j
+
+# Configuration
 python-dotenv
+
+# AI/ML Libraries
 langchain
 langchain-community
 langchain-openai
 langchain-neo4j
 openai
+
+# LangGraph Agent Dependencies
+langgraph
+httpx
+aiohttp
+
+# MCP Server Dependencies
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+
+# Security
+passlib[bcrypt]
+
+# Utilities
+aiofiles
