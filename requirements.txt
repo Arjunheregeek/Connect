@@ -17,6 +17,10 @@ langchain-openai
 langchain-neo4j
 openai
 
+# LangGraph Agent Dependencies
+langgraph
+httpx
+
 # MCP Server Dependencies
 fastapi
 uvicorn[standard]
