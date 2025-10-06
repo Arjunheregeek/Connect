@@ -12,7 +12,7 @@ Main Components:
 """
 
 from .mcp_client import MCPClient, MCPResponse, MCPClientError
-from .types import MCPClientConfig, ToolCall
+from .mcp_client import MCPClientConfig, ToolCall
 
 __all__ = [
     'MCPClient',

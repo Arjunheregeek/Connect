@@ -6,8 +6,7 @@ Connect server. Each method corresponds to a specific tool and handles parameter
 formatting and response processing.
 """
 
-from typing import List, Optional
-
+from typing import Dict, Any, List, Optional
 from .base_client import MCPBaseClient
 from .types import MCPResponse, ToolCall
 
