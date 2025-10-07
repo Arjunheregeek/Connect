@@ -1,5 +1,5 @@
-# Requirements file for the project
-# Dependencies for data processing and CSV manipulation
+# Requirements file for Connect Project
+# Complete dependencies for Agent API, MCP Server, and Core Services
 
 # Core Data Processing
 pandas
@@ -19,13 +19,15 @@ openai
 
 # LangGraph Agent Dependencies
 langgraph
+langgraph-checkpoint
 httpx
 aiohttp
 
-# MCP Server Dependencies
+# FastAPI & Web Server (Agent API + MCP Server)
 fastapi
 uvicorn[standard]
 pydantic
+pydantic-settings
 python-multipart
 
 # Security
@@ -33,3 +35,7 @@ passlib[bcrypt]
 
 # Utilities
 aiofiles
+
+# Additional dependencies for production deployment
+gunicorn
+python-json-logger

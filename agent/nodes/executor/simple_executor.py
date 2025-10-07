@@ -32,15 +32,14 @@ async def simple_executor_node(state: AgentState) -> AgentState:
     # Update status
     state['workflow_status'] = 'executing_tools'
     
-    # Create simple MCP client (no context manager)
-    mcp_client = MCPClient()
-    
-    # Simple execution - make real MCP call
+    # Simple execution - make real MCP call with proper async context
     try:
         user_query = state.get('user_query', '')
         
-        # Make actual natural language search call to MCP server
-        response = await mcp_client.tools.natural_language_search(user_query)
+        # Use MCP client with proper async context manager
+        async with MCPClient() as mcp_client:
+            # Make actual natural language search call to MCP server
+            response = await mcp_client.tools.natural_language_search(user_query)
         
         # Process the response
         if response.success and response.data:
@@ -71,19 +70,12 @@ async def simple_executor_node(state: AgentState) -> AgentState:
         if success:
             state['accumulated_data'].append(result_text)
         
-        state['workflow_status'] = 'tools_complete'
+            state['workflow_status'] = 'tools_complete'
         
     except Exception as e:
         if 'errors' not in state:
             state['errors'] = []
         state['errors'].append(f"Execution error: {str(e)}")
         state['workflow_status'] = 'error'
-    
-    finally:
-        # Clean up MCP client
-        try:
-            await mcp_client.close()
-        except:
-            pass  # Best effort cleanup
     
     return state
