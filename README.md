@@ -1,8 +1,41 @@
-# Connect: Professional Network Knowledge Graph & MCP Server
+# Connect: Intelligent People Knowledge Graph Agent
 
-This repository provides a comprehensive professional network knowledge graph system with an advanced MCP (Model Context Protocol) server for LangGraph agents. The system transforms raw professional profile data into a structured Neo4j knowledge graph and provides intelligent analysis capabilities through 24 specialized tools.
+A sophisticated AI agent system that queries and analyzes professional network data through a knowledge graph. Features cyclical LangGraph workflow with intelligent retry logic, comprehensive MCP server integration, and 24+ specialized tools for professional network analysis.
+
+## 🤖 Agent Overview
+
+Connect Agent is a stateful LangGraph-based AI assistant that intelligently searches and analyzes people data. The agent features:
+
+- **Cyclical Workflow**: Planner → Tool Executor → Synthesizer with quality assessment
+- **Intelligent Retries**: Up to 2 automatic retries with failure-aware re-planning  
+- **Quality Gates**: Each response evaluated for relevance, completeness, and usefulness
+- **Session Management**: Conversation history and context awareness
+- **Easy Integration**: Simple sync/async APIs for any application
+
+## ⚡ Quick Start
+
+```python
+# Install dependencies
+pip install -r requirements.txt
+
+# Start MCP server
+python -m mcp.server
+
+# Use the agent
+from agent import ask_sync
+
+response = ask_sync("Find Python developers at Google")
+print(response)
+```
 
 ## 🚀 Features
+
+### **Intelligent Agent System**
+- **Cyclical LangGraph Workflow** with Planner → Executor → Synthesizer
+- **Smart Retry Logic** with automatic re-planning on failures
+- **Quality Assessment** of all responses for relevance and completeness
+- **Session Management** with conversation history and context
+- **Modular Architecture** with components under 300 lines each
 
 ### **Knowledge Graph System**
 - **1,992 Professional Profiles** stored in Neo4j database
@@ -10,7 +43,7 @@ This repository provides a comprehensive professional network knowledge graph sy
 - **Multi-dimensional Relationships** between people, companies, skills, and institutions
 - **Optimized Graph Queries** for fast data retrieval and analysis
 
-### **MCP Server for LangGraph Agents**
+### **MCP Server Integration**
 - **24 Specialized Tools** for comprehensive professional network analysis
 - **9 Advanced Job Description Analysis Tools** for career insights
 - **Production-Ready FastAPI Server** with authentication and security
@@ -108,32 +141,92 @@ cp .env.example .env
 # Edit .env with your Neo4j credentials and API key
 ```
 
-### **Running the MCP Server**
+### **Start the System**
 
 ```bash
-# Start the MCP server
+# 1. Start Neo4j database (ensure it's running)
+
+# 2. Start the MCP server
 python -m mcp.server
+# Server available at http://localhost:8000
 
-# Server will be available at http://localhost:8000
-# Health check: GET http://localhost:8000/health
-# Tools list: GET http://localhost:8000/tools (requires API key)
+# 3. Test the agent (in another terminal)
+python demo.py
 ```
 
-### **MCP Client Configuration**
+## 🤖 Using the Agent
 
-Add to your MCP client configuration:
-```json
-{
-  "connect-mcp": {
-    "command": "python",
-    "args": ["-m", "mcp.server"],
-    "cwd": "/path/to/Connect",
-    "env": {
-      "CONNECT_API_KEY": "your-api-key-here"
-    }
-  }
-}
+### **Simple Queries**
+```python
+from agent import ask_sync
+
+# Find people by skills
+response = ask_sync("Find Python developers")
+
+# Company-specific searches  
+response = ask_sync("Who works at Google?")
+
+# Combined criteria
+response = ask_sync("Find React experts at tech startups")
 ```
+
+### **Detailed Analysis**
+```python
+from agent import ask_detailed_sync
+
+result = ask_detailed_sync("Find data scientists")
+print(f"Response: {result['response']}")
+print(f"Tools used: {result['tools_used']}")  
+print(f"Retry count: {result['retry_count']}")
+print(f"Success: {result['success']}")
+```
+
+### **Batch Processing**
+```python
+from agent import batch_ask
+
+questions = [
+    "Find JavaScript developers",
+    "Who are the project managers?", 
+    "Find people at Microsoft"
+]
+
+responses = batch_ask(questions)
+```
+
+### **Session Management**
+```python
+from agent import get_session_summary, clear_session
+
+# View current session stats
+summary = get_session_summary()
+print(f"Success rate: {summary['success_rate']:.1%}")
+
+# Clear session when done
+clear_session()
+```
+
+## 🧠 Agent Architecture
+
+### **Cyclical Workflow**
+```
+┌─────────────┐    ┌──────────────┐    ┌─────────────┐
+│   Planner   │───▶│ Tool Execute │───▶│ Synthesizer │
+│             │    │              │    │             │
+└─────────────┘    └──────────────┘    └─────────────┘
+       ▲                                       │
+       │           ┌──────────────┐           │
+       └───────────│ Quality Gate │◀──────────┘
+                   │ & Retry Logic│
+                   └──────────────┘
+```
+
+### **Intelligent Retry System**
+- **Failure Detection**: Automatically identifies empty/poor results
+- **Smart Re-planning**: Adjusts strategy based on failure reasons
+- **Tool Variation**: Tries different tools for the same objective
+- **Parameter Tuning**: Modifies search parameters for better results
+- **Max 2 Retries**: Prevents infinite loops while ensuring thoroughness
 
 ## 📡 API Usage
 

@@ -1,65 +1,77 @@
 """
-Agent State TypedDict Definition
+Agent State TypedDict Definition - SIMPLIFIED VERSION
 
-This module defines the main AgentState TypedDict structure that is passed
-between workflow nodes and maintains the complete context of agent execution.
+This module defines a simplified AgentState TypedDict structure that avoids
+serialization issues with LangGraph by removing datetime objects and complex types.
 """
 
-from typing import Dict, List, Any, Optional
-from typing_extensions import TypedDict, NotRequired
-from datetime import datetime
+from typing import Dict, List, Any, Optional, TypedDict
 
 from .enums import WorkflowStatus
 from .plan import ExecutionPlan
 
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
     """
-    Main state structure for the Single Stateful LangGraph Agent.
+    SIMPLIFIED state structure for the LangGraph Agent.
     
-    This TypedDict is passed between all workflow nodes and maintains
-    the complete context of the agent's execution.
+    Removed problematic fields that cause LangGraph serialization issues:
+    - datetime objects (created_at, updated_at)
+    - Complex nested Any types (debug_info, execution_metrics)
+    - Over-engineered retry/quality assessment fields
+    
+    This minimal version focuses on getting basic Planning → Execution → Synthesis working.
     """
     
     # =================================================================
-    # USER INPUT AND CONTEXT
+    # USER INPUT AND CONTEXT (ESSENTIAL)
     # =================================================================
     user_query: str                           # Original user question/request
     conversation_id: str                      # Unique conversation identifier
-    message_history: NotRequired[List[Dict[str, Any]]]  # Previous messages in conversation
-    user_context: NotRequired[Dict[str, Any]] # Additional user context/preferences
     
     # =================================================================
-    # EXECUTION PLAN AND WORKFLOW
+    # EXECUTION PLAN AND WORKFLOW (ESSENTIAL)
     # =================================================================
-    workflow_status: WorkflowStatus          # Current workflow phase
-    execution_plan: NotRequired[ExecutionPlan]  # Complete execution plan
-    current_step_id: NotRequired[str]        # ID of currently executing step
+    workflow_status: str                      # Current workflow phase (simplified to string)
+    execution_plan: Optional[ExecutionPlan]  # Complete execution plan
     
     # =================================================================
-    # TOOL EXECUTION RESULTS
+    # LANGGRAPH INTEGRATION (ESSENTIAL)
     # =================================================================
-    tool_results: NotRequired[List[Dict[str, Any]]]     # All tool execution results
-    accumulated_data: NotRequired[Dict[str, Any]]       # Processed/aggregated data
-    intermediate_insights: NotRequired[List[str]]       # Insights discovered during execution
+    messages: List[Dict[str, str]]            # LangGraph message chain (simplified)
+    session_id: str                           # Session identifier
+    tools_used: List[str]                     # List of tools called
     
     # =================================================================
-    # FINAL OUTPUT
+    # TOOL EXECUTION RESULTS (ESSENTIAL)
     # =================================================================
-    final_response: NotRequired[str]          # Synthesized final response
-    response_metadata: NotRequired[Dict[str, Any]]  # Response confidence, sources, etc.
+    tool_results: List[Dict[str, Any]]        # All tool execution results
+    accumulated_data: List[Any]               # Processed/aggregated data (simplified)
     
     # =================================================================
-    # ERROR HANDLING AND RECOVERY
+    # FINAL OUTPUT (ESSENTIAL)
     # =================================================================
-    errors: NotRequired[List[Dict[str, Any]]] # All errors encountered
-    warnings: NotRequired[List[str]]          # Non-critical warnings
-    recovery_attempts: NotRequired[int]       # Number of recovery attempts made
+    final_response: str                       # Synthesized final response
     
     # =================================================================
-    # METADATA AND ANALYTICS
+    # ERROR HANDLING (MINIMAL)
     # =================================================================
-    created_at: datetime                      # When state was initialized
-    updated_at: NotRequired[datetime]         # Last state update
-    execution_metrics: NotRequired[Dict[str, float]]  # Performance metrics
-    debug_info: NotRequired[Dict[str, Any]]   # Debug information
+    errors: List[str]                         # Simple error messages
+    
+    # COMMENTED OUT - COMPLEX FIELDS THAT CAUSE LANGGRAPH ISSUES
+    # =================================================================
+    # message_history: List[Dict[str, Any]]     # Previous messages in conversation
+    # user_context: Dict[str, Any]              # Additional user context/preferences
+    # current_step_id: str                      # ID of currently executing step
+    # planning_rounds: int                      # Number of planning iterations
+    # synthesis_attempts: int                   # Number of synthesis attempts
+    # retry_count: int                          # Number of workflow retries
+    # intermediate_insights: List[str]          # Insights discovered during execution
+    # response_metadata: Dict[str, Any]         # Response confidence, sources, etc.
+    # warnings: List[str]                       # Non-critical warnings
+    # recovery_attempts: int                    # Number of recovery attempts made
+    # workflow_version: str                     # Version of workflow used
+    # created_at: datetime                      # ❌ SERIALIZATION PROBLEM
+    # updated_at: datetime                      # ❌ SERIALIZATION PROBLEM
+    # execution_metrics: Dict[str, float]       # ❌ SERIALIZATION PROBLEM
+    # debug_info: Dict[str, Any]                # ❌ SERIALIZATION PROBLEM
