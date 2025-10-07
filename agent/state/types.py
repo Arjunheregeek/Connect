@@ -7,9 +7,6 @@ serialization issues with LangGraph by removing datetime objects and complex typ
 
 from typing import Dict, List, Any, Optional, TypedDict
 
-from .enums import WorkflowStatus
-from .plan import ExecutionPlan
-
 
 class AgentState(TypedDict, total=False):
     """
@@ -33,7 +30,6 @@ class AgentState(TypedDict, total=False):
     # EXECUTION PLAN AND WORKFLOW (ESSENTIAL)
     # =================================================================
     workflow_status: str                      # Current workflow phase (simplified to string)
-    execution_plan: Optional[ExecutionPlan]  # Complete execution plan
     
     # =================================================================
     # LANGGRAPH INTEGRATION (ESSENTIAL)
