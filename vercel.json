@@ -27,11 +27,5 @@
   "outputDirectory": "frontend/build",
   "framework": "create-react-app",
   "installCommand": "cd frontend && npm install",
-  "buildCommand": "cd frontend && npm run build",
-  "env": {
-    "NEO4J_URI": "@neo4j_uri",
-    "NEO_USERNAME": "@neo_username",
-    "NEO_PASSWORD": "@neo_password",
-    "OPENAI_API_KEY": "@openai_api_key"
-  }
+  "buildCommand": "cd frontend && npm run build"
 }
