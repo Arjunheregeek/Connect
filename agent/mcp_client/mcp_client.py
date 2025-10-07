@@ -53,7 +53,7 @@ class MCPClient:
     
     def __init__(
         self,
-        base_url: str = "http://localhost:8000",
+        base_url: str = "https://connect-vxll.onrender.com",
         api_key: str = "f435d1c3b1c5e66db047585265bbe4535a4b5f3389e134b54abe482b7b637ac3",
         timeout: int = 30,
         max_retries: int = 3,
@@ -176,7 +176,7 @@ class MCPClient:
     
     def __init__(
         self,
-        base_url: str = "http://localhost:8000",
+        base_url: str = "https://connect-vxll.onrender.com",
         api_key: str = "f435d1c3b1c5e66db047585265bbe4535a4b5f3389e134b54abe482b7b637ac3",
         timeout: int = 30,
         max_retries: int = 3,

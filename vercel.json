@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "name": "connect-app",
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "build"
+      }
+    },
+    {
+      "src": "api/**/*.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/frontend/$1"
+    }
+  ],
+  "outputDirectory": "frontend/build",
+  "framework": "create-react-app",
+  "installCommand": "cd frontend && npm install",
+  "buildCommand": "cd frontend && npm run build",
+  "env": {
+    "NEO4J_URI": "@neo4j_uri",
+    "NEO_USERNAME": "@neo_username",
+    "NEO_PASSWORD": "@neo_password",
+    "OPENAI_API_KEY": "@openai_api_key"
+  }
+}
