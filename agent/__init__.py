@@ -1,38 +1,35 @@
 """
-LangGraph Agent Package
+Connect Agent Package
 
-This package contains the Single Stateful LangGraph Agent implementation
-that connects to the Connect MCP server via HTTP.
+A sophisticated intelligent agent system for querying and analyzing people data
+using a knowledge graph backed by Neo4j. Features cyclical workflow with intelligent
+retry logic, quality assessment, and modular architecture.
 
-Main Components:
-- MCPClient: High-level client for MCP communication
-- AgentState: State management for the agent workflow
-- Workflow nodes: Planner, Tool Executor, Synthesizer
-- LangGraph workflow: Complete agent implementation
+Architecture:
+- Workflow: LangGraph-based cyclical execution (Planner → Tool Executor → Synthesizer)
+- State Management: Comprehensive tracking of queries, retries, and results
+- Nodes: Modular components for planning, execution, and synthesis
+- MCP Integration: Model Context Protocol for tool communication
 """
 
-from .mcp_client import MCPClient, MCPResponse, MCPClientError
-from .mcp_client import MCPClientConfig, ToolCall
-from .state import AgentState, WorkflowStatus, StateManager, PlanStep, ExecutionPlan
-from .nodes import planner_node, tool_executor_node, synthesizer_node
+from .main_agent import ConnectAgent, agent
+from .helpers import (
+    ask_sync,
+    ask_detailed_sync, 
+    batch_ask,
+    get_agent_info,
+    clear_session,
+    get_session_summary
+)
 
+__version__ = "1.0.0"
 __all__ = [
-    # MCP Client
-    'MCPClient',
-    'MCPResponse', 
-    'MCPClientError',
-    'MCPClientConfig',
-    'ToolCall',
-    
-    # State Management
-    'AgentState',
-    'WorkflowStatus',
-    'StateManager', 
-    'PlanStep',
-    'ExecutionPlan',
-    
-    # Workflow Nodes
-    'planner_node',
-    'tool_executor_node',
-    'synthesizer_node'
+    "ConnectAgent", 
+    "agent",
+    "ask_sync",
+    "ask_detailed_sync",
+    "batch_ask", 
+    "get_agent_info",
+    "clear_session",
+    "get_session_summary"
 ]

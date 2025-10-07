@@ -89,8 +89,17 @@ class DataAnalyzer:
         
         for item in all_data:
             if isinstance(item, dict):
-                # Check if this looks like person data
-                if any(key in item for key in ['name', 'Name', 'person_name', 'full_name']):
+                # Check if this is an MCP response format
+                if 'content' in item and isinstance(item['content'], list):
+                    for content_item in item['content']:
+                        if isinstance(content_item, dict) and content_item.get('type') == 'text':
+                            text = content_item.get('text', '')
+                            # Parse people names from text
+                            extracted_people = cls._parse_people_from_text(text)
+                            people.extend(extracted_people)
+                
+                # Check if this looks like structured person data
+                elif any(key in item for key in ['name', 'Name', 'person_name', 'full_name']):
                     person_info = {
                         'name': item.get('name') or item.get('Name') or item.get('person_name') or item.get('full_name'),
                         'skills': item.get('skills', []),
@@ -105,11 +114,44 @@ class DataAnalyzer:
             elif isinstance(item, str):
                 # Handle string responses that might contain person info
                 if 'name' in item.lower() or 'person' in item.lower():
+                    extracted_people = cls._parse_people_from_text(item)
+                    people.extend(extracted_people)
+        
+        return people
+
+    @classmethod
+    def _parse_people_from_text(cls, text: str) -> List[Dict[str, Any]]:
+        """Parse people names from text responses."""
+        people = []
+        
+        if not text:
+            return people
+        
+        # Look for patterns like "I found X people with Y skills: Name1, Name2, Name3, ..."
+        import re
+        
+        # Pattern 1: "I found X people with Y skills: Name1, Name2, ..."
+        pattern1 = r'I found \d+ people[^:]*:\s*(.+)'
+        match = re.search(pattern1, text, re.IGNORECASE)
+        
+        if match:
+            names_text = match.group(1).strip()
+            # Remove trailing period and split by comma
+            names_text = names_text.rstrip('.').rstrip(',')
+            names = [name.strip() for name in names_text.split(',')]
+            
+            for name in names:
+                if name and len(name) > 1:  # Basic validation
                     people.append({
-                        'name': 'Unknown',
-                        'description': item,
-                        'raw_data': item
+                        'name': name.strip(),
+                        'skills': [],
+                        'company': '',
+                        'title': '',
+                        'raw_data': text
                     })
+        
+        # Pattern 2: Look for other common formats
+        # Could add more patterns here as needed
         
         return people
     
