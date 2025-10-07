@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     """
     
     # Server Configuration
-    host: str = "127.0.0.1"
-    port: int = 8000
+    host: str = os.getenv("HOST", "0.0.0.0")  # Bind to all interfaces for Railway
+    port: int = int(os.getenv("PORT", "8000"))  # Use Railway's assigned port
     debug: bool = False
     
     # Security Configuration
