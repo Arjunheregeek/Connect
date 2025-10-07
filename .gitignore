@@ -187,3 +187,7 @@ Temporary Items
 
 # Project specific
 !requirements.txt
+
+# Data files - CSV files containing personal information
+Data/
+*.csv
