@@ -1,32 +1,18 @@
 """
-Workflow Package
+Workflow Package - SIMPLIFIED VERSION
 
-Modular LangGraph workflow implementation with cyclical retry logic:
+Simple LangGraph workflow implementation without complex retry logic:
 
-- WorkflowQualityAssessor: Evaluates result quality and usefulness
-- RetryManager: Manages retry attempts and failure tracking  
-- EnhancedWorkflowNodes: Wrapper nodes with retry and quality logic
-- WorkflowGraphBuilder: Constructs the LangGraph workflow
-- ConnectWorkflow: Main orchestrator with clean interface
+- WorkflowGraphBuilder: Constructs simple linear LangGraph workflow
 
 The workflow supports:
-- Cyclical execution with up to 2 retries (3 total attempts)
-- Intelligent re-planning based on failure analysis
-- Quality assessment of results before proceeding
-- Comprehensive failure tracking and pattern analysis
+- Linear execution: Planner → Executor → Synthesizer → End
+- No retry cycles, no quality assessment complexity
+- Direct MCP tool execution
 """
 
-from .main_workflow import ConnectWorkflow, connect_workflow
 from .graph_builder import WorkflowGraphBuilder
-from .quality_assessor import WorkflowQualityAssessor
-from .retry_manager import RetryManager
-from .workflow_nodes import EnhancedWorkflowNodes
 
 __all__ = [
-    'ConnectWorkflow',
-    'connect_workflow',
-    'WorkflowGraphBuilder', 
-    'WorkflowQualityAssessor',
-    'RetryManager',
-    'EnhancedWorkflowNodes'
+    'WorkflowGraphBuilder'
 ]

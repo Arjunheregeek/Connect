@@ -1,26 +1,38 @@
 """
-LangGraph Builder
+SIMPLIFIED LangGraph Builder
 
-Constructs the cyclical workflow graph with proper routing and state management.
+Creates a simple linear workflow: Planning → Execution → Synthesis
+Removes all cyclical logic, quality assessment, and retry complexity.
 """
 
 from langgraph.graph import StateGraph, END
 from agent.state import AgentState
-from .workflow_nodes import EnhancedWorkflowNodes
+# SIMPLIFIED: Import simplified nodes that avoid all problematic complexity
+from agent.nodes.planner.simple_planner import simple_planner_node
+from agent.nodes.executor.simple_executor import simple_executor_node  
+from agent.nodes.synthesizer.simple_synthesizer import simple_synthesizer_node
 
 
 class WorkflowGraphBuilder:
     """
-    Builds the LangGraph workflow with cyclical retry logic.
+    SIMPLIFIED LangGraph builder - linear workflow only.
+    
+    Removes all problematic features:
+    - Cyclical routing
+    - Quality assessment 
+    - Retry logic
+    - Enhanced wrapper nodes
     """
     
     @staticmethod
     def build_graph() -> StateGraph:
         """
-        Build the complete LangGraph workflow with cyclical retry logic.
+        Build SIMPLE linear workflow graph.
         
-        Workflow:
-        Start → Planner → Executor → Quality Check → {Re-plan | Synthesizer | Fallback} → End
+        SIMPLIFIED Workflow:
+        Start → Planner → Executor → Synthesizer → End
+        
+        No cycles, no quality checks, no retry logic - just linear execution.
         
         Returns:
             Compiled LangGraph workflow
@@ -29,42 +41,49 @@ class WorkflowGraphBuilder:
         # Create the state graph
         workflow = StateGraph(AgentState)
         
-        # Add workflow nodes
-        workflow.add_node("planner", EnhancedWorkflowNodes.enhanced_planner_node)
-        workflow.add_node("executor", EnhancedWorkflowNodes.enhanced_executor_node)
-        workflow.add_node("synthesizer", EnhancedWorkflowNodes.enhanced_synthesizer_node)
-        workflow.add_node("re_planner", EnhancedWorkflowNodes.re_planner_node)
-        workflow.add_node("fallback", EnhancedWorkflowNodes.fallback_response_node)
+        # Add ONLY the simplified nodes - no complex wrappers
+        workflow.add_node("planner", simple_planner_node)
+        workflow.add_node("executor", simple_executor_node)
+        workflow.add_node("synthesizer", simple_synthesizer_node)
         
         # Set entry point
         workflow.set_entry_point("planner")
         
-        # Add edges
+        # Add SIMPLE linear edges only
         workflow.add_edge("planner", "executor")
-        
-        # Add conditional routing after executor
-        workflow.add_conditional_edges(
-            "executor",
-            EnhancedWorkflowNodes.quality_check_node,
-            {
-                "re_plan": "re_planner",    # Try again with different strategy
-                "synthesize": "synthesizer", # Results are good, generate response
-                "end": "fallback"           # Exhausted retries, generate fallback
-            }
-        )
-        
-        # Re-planner goes back to executor (creating the cycle)
-        workflow.add_edge("re_planner", "executor")
-        
-        # Both synthesizer and fallback end the workflow
+        workflow.add_edge("executor", "synthesizer")
         workflow.add_edge("synthesizer", END)
-        workflow.add_edge("fallback", END)
+        
+        # COMMENTED OUT - PROBLEMATIC COMPLEXITY
+        # =================================================================
+        # # Add workflow nodes
+        # workflow.add_node("planner", EnhancedWorkflowNodes.enhanced_planner_node)
+        # workflow.add_node("executor", EnhancedWorkflowNodes.enhanced_executor_node)
+        # workflow.add_node("synthesizer", EnhancedWorkflowNodes.enhanced_synthesizer_node)
+        # workflow.add_node("re_planner", EnhancedWorkflowNodes.re_planner_node)
+        # workflow.add_node("fallback", EnhancedWorkflowNodes.fallback_response_node)
+        #
+        # # Add conditional routing after executor
+        # workflow.add_conditional_edges(
+        #     "executor",
+        #     EnhancedWorkflowNodes.quality_check_node,  # ❌ CYCLICAL COMPLEXITY
+        #     {
+        #         "re_plan": "re_planner",    # ❌ CREATES CYCLES
+        #         "synthesize": "synthesizer", # Results are good, generate response
+        #         "end": "fallback"           # Exhausted retries, generate fallback
+        #     }
+        # )
+        #
+        # # Re-planner goes back to executor (creating the cycle)
+        # workflow.add_edge("re_planner", "executor")
+        #
+        # # Both synthesizer and fallback end the workflow
+        # workflow.add_edge("synthesizer", END)
+        # workflow.add_edge("fallback", END)
         
         return workflow.compile(
-            checkpointer=None,
-            interrupt_before=None,
-            interrupt_after=None,
-            debug=False
+            # Remove checkpointer to avoid serialization issues
+            checkpointer=None  # SIMPLIFIED: No state persistence
         )
     
     @staticmethod

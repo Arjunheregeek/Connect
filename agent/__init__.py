@@ -1,35 +1,18 @@
 """
-Connect Agent Package
+Connect Agent Package - SIMPLIFIED VERSION
 
-A sophisticated intelligent agent system for querying and analyzing people data
-using a knowledge graph backed by Neo4j. Features cyclical workflow with intelligent
-retry logic, quality assessment, and modular architecture.
+A simplified, working intelligent agent system for querying the professional
+network knowledge graph via MCP protocol.
 
 Architecture:
-- Workflow: LangGraph-based cyclical execution (Planner → Tool Executor → Synthesizer)
-- State Management: Comprehensive tracking of queries, retries, and results
-- Nodes: Modular components for planning, execution, and synthesis
-- MCP Integration: Model Context Protocol for tool communication
+- Workflow: Simple linear LangGraph execution (Planner → Executor → Synthesizer)
+- State Management: Minimal state tracking for reliability
+- Nodes: Simplified nodes that actually work without complex retry cycles
+- MCP Integration: Direct MCP client for tool communication
 """
 
-from .main_agent import ConnectAgent, agent
-from .helpers import (
-    ask_sync,
-    ask_detailed_sync, 
-    batch_ask,
-    get_agent_info,
-    clear_session,
-    get_session_summary
-)
-
+from .workflow.graph_builder import WorkflowGraphBuilder
 __version__ = "1.0.0"
 __all__ = [
-    "ConnectAgent", 
-    "agent",
-    "ask_sync",
-    "ask_detailed_sync",
-    "batch_ask", 
-    "get_agent_info",
-    "clear_session",
-    "get_session_summary"
+    "WorkflowGraphBuilder"
 ]

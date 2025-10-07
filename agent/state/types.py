@@ -1,12 +1,11 @@
 """
-Agent State TypedDict Definition
+Agent State TypedDict Definition - SIMPLIFIED VERSION
 
-This module defines the main AgentState TypedDict structure that is passed
-between workflow nodes and maintains the complete context of agent execution.
+This module defines a simplified AgentState TypedDict structure that avoids
+serialization issues with LangGraph by removing datetime objects and complex types.
 """
 
 from typing import Dict, List, Any, Optional, TypedDict
-from datetime import datetime
 
 from .enums import WorkflowStatus
 from .plan import ExecutionPlan
@@ -14,65 +13,65 @@ from .plan import ExecutionPlan
 
 class AgentState(TypedDict, total=False):
     """
-    Main state structure for the Single Stateful LangGraph Agent.
+    SIMPLIFIED state structure for the LangGraph Agent.
     
-    This TypedDict is passed between all workflow nodes and maintains
-    the complete context of the agent's execution.
+    Removed problematic fields that cause LangGraph serialization issues:
+    - datetime objects (created_at, updated_at)
+    - Complex nested Any types (debug_info, execution_metrics)
+    - Over-engineered retry/quality assessment fields
     
-    Using total=False makes all fields optional by default, which works
-    better with LangGraph's state management.
+    This minimal version focuses on getting basic Planning → Execution → Synthesis working.
     """
     
     # =================================================================
-    # USER INPUT AND CONTEXT
+    # USER INPUT AND CONTEXT (ESSENTIAL)
     # =================================================================
     user_query: str                           # Original user question/request
     conversation_id: str                      # Unique conversation identifier
-    message_history: List[Dict[str, Any]]     # Previous messages in conversation
-    user_context: Dict[str, Any]              # Additional user context/preferences
     
     # =================================================================
-    # EXECUTION PLAN AND WORKFLOW
+    # EXECUTION PLAN AND WORKFLOW (ESSENTIAL)
     # =================================================================
-    workflow_status: WorkflowStatus           # Current workflow phase
-    execution_plan: ExecutionPlan             # Complete execution plan
-    current_step_id: str                      # ID of currently executing step
+    workflow_status: str                      # Current workflow phase (simplified to string)
+    execution_plan: Optional[ExecutionPlan]  # Complete execution plan
     
     # =================================================================
-    # LANGGRAPH INTEGRATION
+    # LANGGRAPH INTEGRATION (ESSENTIAL)
     # =================================================================
-    messages: List[Dict[str, Any]]            # LangGraph message chain
+    messages: List[Dict[str, str]]            # LangGraph message chain (simplified)
     session_id: str                           # Session identifier
-    planning_rounds: int                      # Number of planning iterations
     tools_used: List[str]                     # List of tools called
-    synthesis_attempts: int                   # Number of synthesis attempts
-    retry_count: int                          # Number of workflow retries
     
     # =================================================================
-    # TOOL EXECUTION RESULTS
+    # TOOL EXECUTION RESULTS (ESSENTIAL)
     # =================================================================
     tool_results: List[Dict[str, Any]]        # All tool execution results
-    accumulated_data: Dict[str, Any]          # Processed/aggregated data
-    intermediate_insights: List[str]          # Insights discovered during execution
+    accumulated_data: List[Any]               # Processed/aggregated data (simplified)
     
     # =================================================================
-    # FINAL OUTPUT
+    # FINAL OUTPUT (ESSENTIAL)
     # =================================================================
     final_response: str                       # Synthesized final response
-    response_metadata: Dict[str, Any]         # Response confidence, sources, etc.
     
     # =================================================================
-    # ERROR HANDLING AND RECOVERY
+    # ERROR HANDLING (MINIMAL)
     # =================================================================
-    errors: List[Dict[str, Any]]              # All errors encountered
-    warnings: List[str]                       # Non-critical warnings
-    recovery_attempts: int                    # Number of recovery attempts made
+    errors: List[str]                         # Simple error messages
     
+    # COMMENTED OUT - COMPLEX FIELDS THAT CAUSE LANGGRAPH ISSUES
     # =================================================================
-    # METADATA AND ANALYTICS
-    # =================================================================
-    workflow_version: str                     # Version of workflow used
-    created_at: datetime                      # When state was initialized
-    updated_at: datetime                      # Last state update
-    execution_metrics: Dict[str, float]       # Performance metrics
-    debug_info: Dict[str, Any]                # Debug information
+    # message_history: List[Dict[str, Any]]     # Previous messages in conversation
+    # user_context: Dict[str, Any]              # Additional user context/preferences
+    # current_step_id: str                      # ID of currently executing step
+    # planning_rounds: int                      # Number of planning iterations
+    # synthesis_attempts: int                   # Number of synthesis attempts
+    # retry_count: int                          # Number of workflow retries
+    # intermediate_insights: List[str]          # Insights discovered during execution
+    # response_metadata: Dict[str, Any]         # Response confidence, sources, etc.
+    # warnings: List[str]                       # Non-critical warnings
+    # recovery_attempts: int                    # Number of recovery attempts made
+    # workflow_version: str                     # Version of workflow used
+    # created_at: datetime                      # ❌ SERIALIZATION PROBLEM
+    # updated_at: datetime                      # ❌ SERIALIZATION PROBLEM
+    # execution_metrics: Dict[str, float]       # ❌ SERIALIZATION PROBLEM
+    # debug_info: Dict[str, Any]                # ❌ SERIALIZATION PROBLEM

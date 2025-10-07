@@ -7,7 +7,7 @@ A comprehensive guide to using the Connect Agent for querying your people knowle
 ### Basic Usage
 
 ```python
-from agent import ask_sync
+from app.agent_run import ask_sync
 
 # Simple question
 response = ask_sync("Find Python developers")
@@ -25,25 +25,24 @@ print(response)
 ### Detailed Responses
 
 ```python
-from agent import ask_detailed_sync
+from app.agent_run import ask_detailed_sync
 
 result = ask_detailed_sync("Find data scientists")
 
 print(f"Response: {result['response']}")
-print(f"Tools used: {result['tools_used']}")
-print(f"Execution time: {result['execution_time']}s")
-print(f"Retry count: {result['retry_count']}")
+print(f"Tools used: {result['metadata']['tools_used']}")
+print(f"Execution time: {result['metadata']['execution_time']:.2f}s")
 print(f"Success: {result['success']}")
 ```
 
 ### Batch Processing
 
 ```python
-from agent import batch_ask
+from app.agent_run import batch_ask
 
 questions = [
     "Find JavaScript developers",
-    "Who are the project managers?",
+    "Who are the project managers?", 
     "Find people at startups"
 ]
 
@@ -58,9 +57,9 @@ for question, response in zip(questions, responses):
 ### Conversation Management
 
 ```python
-from agent import ask_sync
+from app.agent_run import ask_sync
 
-# Use conversation ID to maintain context
+# Use conversation ID to maintain context  
 conv_id = "my_session"
 
 response1 = ask_sync("Find React developers", conv_id)
@@ -71,7 +70,7 @@ response3 = ask_sync("Show me their contact info", conv_id)
 ### Session Analytics
 
 ```python
-from agent import get_session_summary, get_agent_info
+from app.agent_run import get_session_summary, get_agent_info
 
 # Get current session statistics
 summary = get_session_summary()
@@ -89,16 +88,18 @@ print(f"Capabilities: {info['capabilities']}")
 
 ```python
 import asyncio
-from agent import agent
+from app.agent_run import get_agent
 
 async def async_example():
+    agent = get_agent()
+    
     # Async version for better performance
     response = await agent.ask("Find software engineers")
     print(response)
     
     # Detailed async response
-    result = await agent.ask_with_details("Find managers")
-    print(f"Used tools: {result['tools_used']}")
+    result = await agent.ask_detailed("Find managers")
+    print(f"Used tools: {result['metadata']['tools_used']}")
 
 # Run async function
 asyncio.run(async_example())
@@ -186,35 +187,33 @@ ask_sync("Which companies have the most engineers?")
 
 ## Agent Features
 
-### Intelligent Retry System
+### Simplified Architecture
 
-The agent automatically retries failed queries with:
-- **Up to 2 retries** per query
-- **Smart re-planning** when results are empty or inadequate
-- **Tool variation** to try different approaches
-- **Parameter adjustment** for better results
-
-### Quality Assessment
-
-Each response is evaluated for:
-- **Relevance** to the original question
-- **Completeness** of information
-- **Accuracy** of data
-- **Usefulness** for the user
+The agent uses a streamlined approach:
+- **Linear Workflow**: Planning → Execution → Synthesis (no cycles)
+- **Real MCP Integration**: Direct connection to Neo4j knowledge graph with 1,992+ profiles
+- **24+ Tools**: Comprehensive tool set for people search and analysis
+- **No Retry Complexity**: Simplified error handling without retry loops
 
 ### Session Management
 
 - **Conversation history** maintained per session
-- **Context awareness** across related queries
+- **Context awareness** across related queries  
 - **Performance tracking** and analytics
 - **Easy session cleanup** when needed
+
+### Data Access
+
+- **1,992+ Professional Profiles** in Neo4j knowledge graph
+- **Real-time Results**: Direct database queries through MCP server
+- **Rich Profile Data**: Skills, companies, locations, roles, and more
 
 ## Error Handling
 
 ### Common Issues
 
 ```python
-from agent import ask_sync
+from app.agent_run import ask_sync
 
 # Handle connection issues
 try:
@@ -227,15 +226,15 @@ except Exception as e:
 ### Debugging
 
 ```python
-from agent import ask_detailed_sync
+from app.agent_run import ask_detailed_sync
 
 # Get detailed info for debugging
 result = ask_detailed_sync("problematic query")
 
 if not result['success']:
-    print(f"Failed after {result['retry_count']} retries")
-    print(f"Tools tried: {result['tools_used']}")
-    print(f"Execution time: {result['execution_time']}s")
+    print(f"Error: {result['metadata'].get('error', 'Unknown error')}")
+    print(f"Tools used: {result['metadata']['tools_used']}")
+    print(f"Execution time: {result['metadata']['execution_time']:.2f}s")
 ```
 
 ## Performance Tips
@@ -251,6 +250,8 @@ responses = batch_ask(questions)  # More efficient
 ### 2. Use Conversation Context
 
 ```python
+from app.agent_run import ask_sync
+
 # Maintain context for related queries
 conv_id = "skill_search"
 ask_sync("Find Python developers", conv_id)
@@ -260,7 +261,7 @@ ask_sync("Which ones have 5+ years experience?", conv_id)  # Uses context
 ### 3. Clear Sessions When Done
 
 ```python
-from agent import clear_session
+from app.agent_run import clear_session
 
 # Clear history to free memory
 clear_session()
@@ -272,7 +273,7 @@ clear_session()
 
 ```python
 from flask import Flask, request, jsonify
-from agent import ask_sync, ask_detailed_sync
+from app.agent_run import ask_sync, ask_detailed_sync
 
 app = Flask(__name__)
 
@@ -283,8 +284,8 @@ def search_people():
     
     return jsonify({
         'response': result['response'],
-        'tools_used': result['tools_used'],
-        'execution_time': result['execution_time'],
+        'tools_used': result['metadata']['tools_used'],
+        'execution_time': result['metadata']['execution_time'],
         'success': result['success']
     })
 
@@ -300,7 +301,7 @@ def quick_search():
 ```python
 #!/usr/bin/env python3
 import sys
-from agent import ask_sync
+from app.agent_run import ask_sync
 
 def main():
     if len(sys.argv) < 2:
@@ -319,7 +320,7 @@ if __name__ == "__main__":
 
 ```python
 # Cell 1: Setup
-from agent import ask_sync, ask_detailed_sync, get_session_summary
+from app.agent_run import ask_sync, ask_detailed_sync, get_session_summary
 import pandas as pd
 
 # Cell 2: Basic search
@@ -328,8 +329,8 @@ print(response)
 
 # Cell 3: Detailed analysis
 result = ask_detailed_sync("Find Python developers")
-print(f"Found results in {result['execution_time']:.2f}s")
-print(f"Tools used: {result['tools_used']}")
+print(f"Found results in {result['metadata']['execution_time']:.2f}s")
+print(f"Tools used: {result['metadata']['tools_used']}")
 
 # Cell 4: Session analytics
 summary = get_session_summary()
@@ -370,30 +371,37 @@ export NEO4J_PASSWORD="your_password"
 
 2. **"No results found"**
    - Try broader search terms
-   - Check if data exists in your knowledge graph
-   - Use detailed response to see tools tried
+   - Check if data exists in your knowledge graph (1,992+ profiles available)
+   - Use detailed response to see tools used
 
 3. **Slow responses**
    - Check Neo4j database performance
    - Use batch queries for multiple searches
    - Clear session history if very long
 
-4. **Retry failures**
-   - Agent automatically retries up to 2 times
-   - Check detailed response for failure reasons
-   - Verify MCP server tools are working
+4. **Connection issues**
+   - Ensure MCP server is running on localhost:8000
+   - Check detailed response for error information
+   - Verify Neo4j database is accessible
 
 ### Getting Help
 
 ```python
-from agent import get_agent_info
+from app.agent_run import get_agent_info
 
 # See agent capabilities and current status
 info = get_agent_info()
 print(info)
 ```
 
-For more help, check the demo script:
+For more help, check the demo scripts:
 ```bash
-python demo.py
+# Interactive agent demo
+python working_demo.py
+
+# CLI usage
+python app/agent_run.py "Find Python developers"
+
+# Interactive mode
+python app/agent_run.py
 ```
