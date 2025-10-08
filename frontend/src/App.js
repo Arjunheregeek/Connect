@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import './App.css';
 
-const AGENT_API_URL = 'http://localhost:8000';
+const AGENT_API_URL = 'https://connect-agent.onrender.com';
 
 function App() {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
+    const [isFirstQuery, setIsFirstQuery] = useState(true);
 
     const sendMessage = async () => {
         if (!input.trim()) return;
@@ -17,6 +18,18 @@ function App() {
         setLoading(true);
 
         try {
+            // Wake up the server on first query (handles cold start)
+            if (isFirstQuery) {
+                setIsFirstQuery(false);
+                try {
+                    await fetch(`${AGENT_API_URL}/`, { method: 'GET' });
+                } catch (err) {
+                    console.log('Waking up server...');
+                }
+                // Give server a moment to warm up
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+
             // Call the LangGraph Connect Agent API
             const response = await fetch(`${AGENT_API_URL}/ask`, {
                 method: 'POST',
