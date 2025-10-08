@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import './App.css';
 
-// Use environment variable for API URL, fallback to relative path for Vercel
-const AGENT_API_URL = process.env.REACT_APP_API_URL || '/api';
+const AGENT_API_URL = 'http://localhost:8000';
 
 function App() {
     const [messages, setMessages] = useState([]);
