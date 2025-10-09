@@ -120,6 +120,9 @@ User → React (Vercel)
 → First request after idle (cold start) is slow
 → Upgrade to paid plan to stay always-on
 
+curl -X GET https://connect-vxll.onrender.com/health -w "\nS
+tatus: %{http_code}\nTime: %{time_total}s\n"
+
 ---
 
 See `AGENT_API_DEPLOYMENT.md` for detailed instructions.
