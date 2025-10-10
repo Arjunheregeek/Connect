@@ -53,9 +53,8 @@ class QueryManager:
         WITH p, work_history, collect(DISTINCT {{
             institution: i.name,
             degree: edu.degree,
-            field_of_study: edu.field_of_study,
-            start_date: edu.start_date,
-            end_date: edu.end_date
+            start_year: edu.start_year,
+            end_year: edu.end_year
         }}) as education_history
         
         // Return ALL 35 properties plus relationships

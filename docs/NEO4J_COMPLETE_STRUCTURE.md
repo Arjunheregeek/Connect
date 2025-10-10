@@ -134,7 +134,7 @@ Institution {
 #### Properties:
 ```
 CURRENTLY_WORKS_AT {
-  role: String                         // Job title
+  title: String                        // Job title
   start_date: String                   // When they started
   end_date: String                     // null for current jobs
   duration_months: Integer             // Duration in months
@@ -147,7 +147,7 @@ CURRENTLY_WORKS_AT {
 
 **Example**:
 ```cypher
-(Person {name: "John Doe"})-[:CURRENTLY_WORKS_AT {role: "Senior Engineer", is_current: true}]->(Company {name: "Google"})
+(Person {name: "John Doe"})-[:CURRENTLY_WORKS_AT {title: "Senior Engineer", is_current: true}]->(Company {name: "Google"})
 ```
 
 ---
@@ -159,7 +159,7 @@ CURRENTLY_WORKS_AT {
 #### Properties:
 ```
 PREVIOUSLY_WORKED_AT {
-  role: String                         // Job title
+  title: String                        // Job title
   start_date: String                   // Start date
   end_date: String                     // End date
   duration_months: Integer             // Duration in months
@@ -172,8 +172,8 @@ PREVIOUSLY_WORKED_AT {
 
 **Example**:
 ```cypher
-(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {role: "Engineer", end_date: "2022-01"}]->(Company {name: "Microsoft"})
-(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {role: "Intern", end_date: "2020-06"}]->(Company {name: "Amazon"})
+(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {title: "Engineer", end_date: "2022-01"}]->(Company {name: "Microsoft"})
+(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {title: "Intern", end_date: "2020-06"}]->(Company {name: "Amazon"})
 ```
 
 **Note**: One person can have multiple PREVIOUSLY_WORKED_AT relationships (one per previous company)
