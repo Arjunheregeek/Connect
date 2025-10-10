@@ -9,7 +9,6 @@ sys.path.insert(0, project_root)
 
 from src.graph_db import GraphDB
 from src.query import QueryManager
-from src.natural_language_search import NaturalLanguageSearch
 from mcp.config.settings import settings
 import logging
 
@@ -20,13 +19,14 @@ class ConnectBridgeService:
     Bridge service that connects MCP handlers with existing Connect components.
     This service maintains the connection to existing functionality while providing
     a clean interface for MCP operations.
+    
+    Updated to support exactly 19 tools matching tool_schemas.py
     """
     
     def __init__(self):
         """Initialize the bridge service with existing Connect components"""
         self._db: Optional[GraphDB] = None
         self._query_manager: Optional[QueryManager] = None
-        self._nl_search: Optional[NaturalLanguageSearch] = None
         self._initialized = False
         
     async def initialize(self) -> None:
@@ -48,107 +48,105 @@ class ConnectBridgeService:
                 password=settings.neo_password
             )
             
-            # Initialize QueryManager
-            logger.info("Initializing QueryManager...")
+            # Initialize Query Manager
+            logger.info("Initializing Query Manager...")
             self._query_manager = QueryManager(self._db)
-            
-            # Initialize Natural Language Search
-            logger.info("Initializing Natural Language Search...")
-            self._nl_search = NaturalLanguageSearch(
-                self._db, 
-                settings.openai_api_key
-            )
             
             self._initialized = True
             logger.info("Connect Bridge Service initialized successfully")
             
         except Exception as e:
-            logger.error(f"Failed to initialize Connect Bridge Service: {e}")
-            await self.cleanup()
+            logger.error(f"Failed to initialize bridge service: {e}")
             raise
     
     async def cleanup(self) -> None:
-        """Clean up resources"""
-        if self._db:
-            self._db.close()
-            logger.info("Database connection closed")
+        """Cleanup resources"""
+        try:
+            if self._db:
+                self._db.close()
+            self._initialized = False
+            logger.info("Bridge service cleaned up successfully")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
     
-    def _ensure_initialized(self) -> None:
+    def _ensure_initialized(self):
         """Ensure the service is initialized before use"""
         if not self._initialized:
             raise RuntimeError("Bridge service not initialized. Call initialize() first.")
     
-    # Query Manager Methods
+    # ============================================================================
+    # Query Methods - 19 tools matching tool_schemas.py
+    # ============================================================================
+    
+    async def get_person_complete_profile(self, person_id: Optional[int] = None, person_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get complete profile for a person including ALL 35 properties, work history, and education"""
+        self._ensure_initialized()
+        return self._query_manager.get_person_complete_profile(person_id=person_id, person_name=person_name)
+    
     async def find_person_by_name(self, name: str) -> List[Dict[str, Any]]:
-        """Find a person by their name"""
+        """Find a person by their name - lightweight profile"""
         self._ensure_initialized()
         return self._query_manager.find_person_by_name(name)
     
     async def find_people_by_skill(self, skill: str) -> List[Dict[str, Any]]:
-        """Find people with a specific skill"""
+        """Find all people who have a specific skill"""
         self._ensure_initialized()
         return self._query_manager.find_people_by_skill(skill)
     
     async def find_people_by_company(self, company_name: str) -> List[Dict[str, Any]]:
-        """Find people who worked at a specific company"""
+        """Find all people who have worked at a specific company"""
         self._ensure_initialized()
         return self._query_manager.find_people_by_company(company_name)
     
     async def find_colleagues_at_company(self, person_id: int, company_name: str) -> List[Dict[str, Any]]:
-        """Find colleagues of a person at a specific company"""
+        """Find colleagues of a specific person at a given company"""
         self._ensure_initialized()
         return self._query_manager.find_colleagues_at_company(person_id, company_name)
     
-    # Additional Query Manager Methods
     async def find_people_by_institution(self, institution_name: str) -> List[Dict[str, Any]]:
-        """Find people who studied at a specific institution"""
+        """Find all people who studied at a specific institution"""
         self._ensure_initialized()
         return self._query_manager.find_people_by_institution(institution_name)
     
     async def find_people_by_location(self, location: str) -> List[Dict[str, Any]]:
-        """Find people in a specific location"""
+        """Find all people in a specific location"""
         self._ensure_initialized()
         return self._query_manager.find_people_by_location(location)
     
-    async def get_person_skills(self, person_name: str) -> List[Dict[str, Any]]:
+    async def get_person_skills(self, person_id: Optional[int] = None, person_name: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all skills for a specific person"""
         self._ensure_initialized()
-        return self._query_manager.get_person_skills(person_name)
+        return self._query_manager.get_person_skills(person_id=person_id, person_name=person_name)
     
     async def find_people_with_multiple_skills(self, skills_list: List[str], match_type: str = "any") -> List[Dict[str, Any]]:
-        """Find people with multiple skills"""
+        """Find people who have multiple specific skills"""
         self._ensure_initialized()
         return self._query_manager.find_people_with_multiple_skills(skills_list, match_type)
     
-    async def get_person_colleagues(self, person_name: str) -> List[Dict[str, Any]]:
-        """Get all colleagues of a person"""
+    async def get_person_colleagues(self, person_id: Optional[int] = None, person_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get all colleagues of a person across all companies"""
         self._ensure_initialized()
-        return self._query_manager.get_person_colleagues(person_name)
+        return self._query_manager.get_person_colleagues(person_id=person_id, person_name=person_name)
     
     async def find_people_by_experience_level(self, min_months: Optional[int] = None, max_months: Optional[int] = None) -> List[Dict[str, Any]]:
-        """Find people by experience level"""
+        """Find people based on their total work experience"""
         self._ensure_initialized()
         return self._query_manager.find_people_by_experience_level(min_months, max_months)
     
     async def get_company_employees(self, company_name: str) -> List[Dict[str, Any]]:
-        """Get all employees of a company"""
+        """Get all employees (past and present) of a company"""
         self._ensure_initialized()
         return self._query_manager.get_company_employees(company_name)
     
-    async def get_skill_popularity(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Get most popular skills"""
+    async def get_person_details(self, person_id: Optional[int] = None, person_name: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Get comprehensive details about a person - summary view"""
         self._ensure_initialized()
-        return self._query_manager.get_skill_popularity(limit)
-    
-    async def get_person_details(self, person_name: str) -> List[Dict[str, Any]]:
-        """Get comprehensive person details"""
-        self._ensure_initialized()
-        return self._query_manager.get_person_details(person_name)
+        return self._query_manager.get_person_details(person_id=person_id, person_name=person_name)
 
-    async def get_person_job_descriptions(self, person_name: str) -> List[Dict[str, Any]]:
+    async def get_person_job_descriptions(self, person_id: Optional[int] = None, person_name: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get all job descriptions for a person with company and role details"""
         self._ensure_initialized()
-        return self._query_manager.get_person_job_descriptions(person_name)
+        return self._query_manager.get_person_job_descriptions(person_id=person_id, person_name=person_name)
 
     async def search_job_descriptions_by_keywords(self, keywords: List[str], match_type: str = "any") -> List[Dict[str, Any]]:
         """Search for people based on keywords in their job descriptions"""
@@ -165,38 +163,15 @@ class ConnectBridgeService:
         self._ensure_initialized()
         return self._query_manager.find_leadership_indicators()
 
-    async def find_achievement_patterns(self) -> List[Dict[str, Any]]:
-        """Find people with quantifiable achievements in their job descriptions"""
-        self._ensure_initialized()
-        return self._query_manager.find_achievement_patterns()
-
-    async def analyze_career_progression(self, person_name: str) -> List[Dict[str, Any]]:
-        """Analyze a person's career progression"""
-        self._ensure_initialized()
-        return self._query_manager.analyze_career_progression(person_name)
-
     async def find_domain_experts(self, domain_keywords: List[str]) -> List[Dict[str, Any]]:
-        """Find people with deep domain expertise"""
+        """Find people with deep domain expertise based on job description analysis"""
         self._ensure_initialized()
         return self._query_manager.find_domain_experts(domain_keywords)
 
-    async def find_similar_career_paths(self, reference_person_name: str, similarity_threshold: int = 2) -> List[Dict[str, Any]]:
-        """Find people with similar career paths"""
-        self._ensure_initialized()
-        return self._query_manager.find_similar_career_paths(reference_person_name, similarity_threshold)
-
-    async def find_role_transition_patterns(self, from_role_keywords: List[str], to_role_keywords: List[str]) -> List[Dict[str, Any]]:
-        """Find people who transitioned between role types"""
-        self._ensure_initialized()
-        return self._query_manager.find_role_transition_patterns(from_role_keywords, to_role_keywords)
-
-    # Natural Language Search Methods
-    async def natural_language_search(self, question: str) -> str:
-        """Perform natural language search"""
-        self._ensure_initialized()
-        return self._nl_search.search(question)
+    # ============================================================================
+    # Health Check Method
+    # ============================================================================
     
-    # Health Check Methods
     async def health_check(self) -> Dict[str, Any]:
         """Perform a health check of all components"""
         try:
@@ -212,7 +187,7 @@ class ConnectBridgeService:
                 "database_connected": True,
                 "node_count": node_count,
                 "query_manager_ready": self._query_manager is not None,
-                "nl_search_ready": self._nl_search is not None
+                "total_tools": 19
             }
             
         except Exception as e:

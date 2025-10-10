@@ -1,34 +1,89 @@
 # --- mcp/schemas/tool_schemas.py ---
 from typing import Dict, Any, List
 
-# Graph schema definition (from existing natural_language_search.py)
+# Graph schema definition - Based on actual Neo4j database structure from importer.py
 GRAPH_SCHEMA = """
 Node properties are the following:
-Person {id: INTEGER, name: STRING, linkedin_profile: STRING, email: STRING, phone: STRING, location: STRING, headline: STRING, summary: STRING, followers_count: FLOAT, total_experience_months: FLOAT},
-Company {url: STRING, name: STRING},
-Institution {url: STRING, name: STRING},
-Skill {name: STRING} -- NOTE: Skill names are stored in lowercase
+Person {
+    person_id: INTEGER (unique identifier),
+    name: STRING,
+    linkedin_profile: STRING,
+    email: STRING,
+    phone: STRING,
+    current_location: STRING,
+    headline: STRING,
+    summary: STRING,
+    followers_count: FLOAT,
+    trustworthiness_score: INTEGER,
+    perceived_expertise_level: INTEGER,
+    competence_score: INTEGER,
+    current_title: STRING,
+    current_company: STRING,
+    industry: STRING,
+    seniority_level: STRING,
+    years_of_experience: FLOAT,
+    employment_type: STRING,
+    professional_status: STRING,
+    primary_expertise: STRING,
+    total_experience_months: FLOAT,
+    technical_skills: LIST<STRING>,
+    secondary_skills: LIST<STRING>,
+    domain_knowledge: LIST<STRING>,
+    degrees: LIST<STRING>,
+    current_goals: STRING,
+    current_challenges: STRING,
+    resources_needed: STRING,
+    availability_hiring: STRING,
+    availability_roles: STRING,
+    availability_cofounder: STRING,
+    availability_advisory: STRING,
+    updated_at: DATETIME
+},
+Company {name: STRING (unique), created_at: DATETIME},
+Institution {name: STRING (unique), created_at: DATETIME}
 
 Relationship properties are the following:
-WORKS_AT {title: STRING, start_date: STRING, end_date: STRING, duration_months: FLOAT, description: STRING, location: STRING},
-STUDIED_AT {degree: STRING, start_year: INTEGER, end_year: INTEGER}
+CURRENTLY_WORKS_AT {role: STRING, start_date: STRING, end_date: STRING, duration_months: FLOAT, description: STRING, location: STRING, is_current: BOOLEAN, created_at: DATETIME},
+PREVIOUSLY_WORKED_AT {role: STRING, start_date: STRING, end_date: STRING, duration_months: FLOAT, description: STRING, location: STRING, is_current: BOOLEAN, created_at: DATETIME},
+STUDIED_AT {degree: STRING, start_year: INTEGER, end_year: INTEGER, created_at: DATETIME}
 
 The relationships are the following:
-(:Person)-[:WORKS_AT]->(:Company),
-(:Person)-[:STUDIED_AT]->(:Institution),
-(:Person)-[:HAS_SKILL]->(:Skill)
+(:Person)-[:CURRENTLY_WORKS_AT]->(:Company),
+(:Person)-[:PREVIOUSLY_WORKED_AT]->(:Company),
+(:Person)-[:STUDIED_AT]->(:Institution)
 
-IMPORTANT: When searching for skills, always use lowercase for skill names.
-Examples:
-- For "Machine Learning" skills: MATCH (p:Person)-[:HAS_SKILL]->(s:Skill {name: 'machine learning'})
-- For "Python" skills: MATCH (p:Person)-[:HAS_SKILL]->(s:Skill {name: 'python'})
+IMPORTANT NOTES:
+- Skills are stored as ARRAYS directly on Person nodes (technical_skills, secondary_skills, domain_knowledge), NOT as separate Skill nodes
+- Work relationships are SPLIT into CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT (not a single WORKS_AT relationship)
+- The relationship property for job title is 'role', NOT 'title'
+- Person identifier is 'person_id', NOT 'id'
+- Person location is 'current_location', NOT 'location'
+- Education dates use start_year/end_year (INTEGER), NOT start_date/end_date
 """
 
-# MCP Tool Definitions
+# MCP Tool Definitions - Based on actual QueryManager methods in src/query.py
 MCP_TOOLS = [
     {
+        "name": "get_person_complete_profile",
+        "description": "Get complete profile for a person including ALL 35 properties, work history with job descriptions, and education history",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "person_id": {
+                    "type": "integer",
+                    "description": "The unique person ID (preferred)"
+                },
+                "person_name": {
+                    "type": "string",
+                    "description": "The person's name (alternative identifier)"
+                }
+            },
+            "required": []
+        }
+    },
+    {
         "name": "find_person_by_name",
-        "description": "Find a specific person by their name (case-insensitive partial matching)",
+        "description": "Find a person by their name (case-insensitive partial matching) - returns lightweight profile with person_id",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -41,14 +96,14 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "find_people_by_skill", 
-        "description": "Find all people who have a specific skill (e.g., Python, machine learning, etc.)",
+        "name": "find_people_by_skill",
+        "description": "Find all people who have a specific skill - searches across technical_skills, secondary_skills, and domain_knowledge arrays",
         "inputSchema": {
             "type": "object",
             "properties": {
                 "skill": {
                     "type": "string",
-                    "description": "The skill to search for (will be converted to lowercase automatically)"
+                    "description": "The skill to search for (case-insensitive)"
                 }
             },
             "required": ["skill"]
@@ -56,9 +111,9 @@ MCP_TOOLS = [
     },
     {
         "name": "find_people_by_company",
-        "description": "Find all people who have worked at a specific company",
+        "description": "Find all people who have worked at a specific company (current or past)",
         "inputSchema": {
-            "type": "object", 
+            "type": "object",
             "properties": {
                 "company_name": {
                     "type": "string",
@@ -79,25 +134,11 @@ MCP_TOOLS = [
                     "description": "The ID of the person to find colleagues for"
                 },
                 "company_name": {
-                    "type": "string", 
+                    "type": "string",
                     "description": "The name of the company where they worked together"
                 }
             },
             "required": ["person_id", "company_name"]
-        }
-    },
-    {
-        "name": "natural_language_search",
-        "description": "Perform a natural language search across the knowledge graph using AI",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "question": {
-                    "type": "string",
-                    "description": "Natural language question to search the knowledge graph (e.g., 'Who has Python skills?', 'Who worked at Google?')"
-                }
-            },
-            "required": ["question"]
         }
     },
     {
@@ -115,7 +156,7 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "find_people_by_location", 
+        "name": "find_people_by_location",
         "description": "Find all people in a specific location or city",
         "inputSchema": {
             "type": "object",
@@ -130,16 +171,20 @@ MCP_TOOLS = [
     },
     {
         "name": "get_person_skills",
-        "description": "Get all skills for a specific person",
+        "description": "Get all skills for a specific person from their skill arrays (technical_skills, secondary_skills, domain_knowledge)",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "person_id": {
+                    "type": "integer",
+                    "description": "The person ID (preferred)"
+                },
                 "person_name": {
                     "type": "string",
-                    "description": "The name of the person to get skills for"
+                    "description": "The person name (alternative)"
                 }
             },
-            "required": ["person_name"]
+            "required": []
         }
     },
     {
@@ -169,12 +214,16 @@ MCP_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "person_id": {
+                    "type": "integer",
+                    "description": "The person ID (preferred)"
+                },
                 "person_name": {
                     "type": "string",
-                    "description": "The name of the person to find colleagues for"
+                    "description": "The person name (alternative)"
                 }
             },
-            "required": ["person_name"]
+            "required": []
         }
     },
     {
@@ -188,7 +237,7 @@ MCP_TOOLS = [
                     "description": "Minimum experience in months"
                 },
                 "max_months": {
-                    "type": "integer", 
+                    "type": "integer",
                     "description": "Maximum experience in months"
                 }
             },
@@ -210,40 +259,20 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "get_skill_popularity",
-        "description": "Get the most popular skills by counting how many people have each skill",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "limit": {
-                    "type": "integer",
-                    "default": 20,
-                    "description": "Maximum number of skills to return"
-                }
-            },
-            "required": []
-        }
-    },
-    {
         "name": "get_person_details",
-        "description": "Get comprehensive details about a person including skills, companies, and education",
+        "description": "Get comprehensive details about a person including skills, companies, and education - summary view",
         "inputSchema": {
             "type": "object",
             "properties": {
+                "person_id": {
+                    "type": "integer",
+                    "description": "The person ID (preferred)"
+                },
                 "person_name": {
                     "type": "string",
-                    "description": "The name of the person to get details for"
+                    "description": "The person name (alternative)"
                 }
             },
-            "required": ["person_name"]
-        }
-    },
-    {
-        "name": "health_check",
-        "description": "Check the health status of the knowledge graph database and services",
-        "inputSchema": {
-            "type": "object",
-            "properties": {},
             "required": []
         }
     },
@@ -253,12 +282,16 @@ MCP_TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
+                "person_id": {
+                    "type": "integer",
+                    "description": "The person ID (preferred)"
+                },
                 "person_name": {
                     "type": "string",
-                    "description": "The name of the person to get job descriptions for"
+                    "description": "The person name (alternative)"
                 }
             },
-            "required": ["person_name"]
+            "required": []
         }
     },
     {
@@ -307,31 +340,8 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "find_achievement_patterns",
-        "description": "Find people with quantifiable achievements in their job descriptions - looks for metrics, improvements, and measurable impact",
-        "inputSchema": {
-            "type": "object",
-            "properties": {},
-            "required": []
-        }
-    },
-    {
-        "name": "analyze_career_progression",
-        "description": "Analyze a person's career progression by examining job titles and descriptions over time - shows how roles, responsibilities, and seniority evolved",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "person_name": {
-                    "type": "string",
-                    "description": "The name of the person to analyze career progression for"
-                }
-            },
-            "required": ["person_name"]
-        }
-    },
-    {
         "name": "find_domain_experts",
-        "description": "Find people with deep domain expertise based on job description analysis",
+        "description": "Find people with deep domain expertise based on job description analysis - requires at least 2 jobs in the domain",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -345,42 +355,12 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "find_similar_career_paths",
-        "description": "Find people with similar career paths to a reference person - compares job titles, companies, and progression patterns",
+        "name": "health_check",
+        "description": "Check the health status of the knowledge graph database and services",
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "reference_person_name": {
-                    "type": "string",
-                    "description": "The person to compare against"
-                },
-                "similarity_threshold": {
-                    "type": "integer",
-                    "default": 2,
-                    "description": "Minimum number of similar elements (companies/roles)"
-                }
-            },
-            "required": ["reference_person_name"]
-        }
-    },
-    {
-        "name": "find_role_transition_patterns",
-        "description": "Find people who transitioned from one type of role to another - useful for understanding career pivot patterns",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "from_role_keywords": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Keywords for the starting role type"
-                },
-                "to_role_keywords": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "Keywords for the target role type"
-                }
-            },
-            "required": ["from_role_keywords", "to_role_keywords"]
+            "properties": {},
+            "required": []
         }
     }
 ]
