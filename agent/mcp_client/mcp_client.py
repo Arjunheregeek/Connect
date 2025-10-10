@@ -16,7 +16,7 @@ Key Features:
 - X-API-Key authentication
 - Comprehensive error handling
 - Connection pooling and retry logic
-- Type-safe interfaces for all 24 tools
+- Type-safe interfaces for all 19 tools
 """
 
 from typing import Dict, Any, Optional
