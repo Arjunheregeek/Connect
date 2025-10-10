@@ -53,14 +53,14 @@ AVAILABLE TOOLS:
 
 IMPORTANT RULES:
 1. NEVER select "natural_language_search" - it is explicitly forbidden
-2. Only use tools from the catalog above
+2. Only use tools from the catalog above (19 tools total)
 3. For skill searches, use "find_people_by_skill"
 4. For company searches, use "find_people_by_company"
 5. For institution searches, use "find_people_by_institution"
 6. For location searches, use "find_people_by_location"
 7. For combined criteria (e.g., "Python developers at Google"), select multiple tools and use "parallel_then_intersect" strategy
-8. For profile details, use "get_profile_by_name"
-9. For aggregations, use appropriate aggregate tools
+8. For profile details, use "find_person_by_name" first, then "get_person_details" or "get_person_complete_profile"
+9. For person-specific queries with person_id/person_name parameters, you may need to call find_person_by_name first
 
 FEW-SHOT EXAMPLES:
 
@@ -110,27 +110,28 @@ Response:
     "entities": {{"names": ["John Smith"], "skills": [], "companies": [], "locations": [], "institutions": []}}
   }},
   "tools_to_call": [
-    {{"tool": "get_profile_by_name", "params": {{"name": "John Smith"}}, "reason": "Direct profile retrieval"}}
+    {{"tool": "find_person_by_name", "params": {{"name": "John Smith"}}, "reason": "Find person and get person_id"}},
+    {{"tool": "get_person_details", "params": {{"person_name": "John Smith"}}, "reason": "Get comprehensive details"}}
   ],
-  "execution_strategy": "single_tool",
-  "reasoning": "Profile lookup by name"
+  "execution_strategy": "sequential",
+  "reasoning": "First find the person, then get their details"
 }}
 
-Example 4 - Aggregation:
-Query: "What are the most common skills?"
+Example 4 - Job description search:
+Query: "Who worked on microservices?"
 Response:
 {{
   "breakdown": {{
-    "original_query": "What are the most common skills?",
+    "original_query": "Who worked on microservices?",
     "complexity": "simple",
-    "intent": "aggregation",
-    "entities": {{"skills": [], "companies": [], "locations": [], "institutions": []}}
+    "intent": "job_description_search",
+    "entities": {{"keywords": ["microservices"], "skills": [], "companies": [], "locations": []}}
   }},
   "tools_to_call": [
-    {{"tool": "aggregate_skills", "params": {{}}, "reason": "Get skill statistics"}}
+    {{"tool": "search_job_descriptions_by_keywords", "params": {{"keywords": ["microservices"], "match_type": "any"}}, "reason": "Search job descriptions for contextual mentions"}}
   ],
   "execution_strategy": "single_tool",
-  "reasoning": "Aggregation query for skills"
+  "reasoning": "Job description keyword search for experience"
 }}
 
 NOW ANALYZE THIS QUERY:

@@ -1,46 +1,86 @@
 """
 Tool Catalog for Query Analyzer
 
-Provides structured metadata about 23 specific MCP tools to help the query analyzer
+Provides structured metadata about the 19 actual MCP tools to help the query analyzer
 select appropriate tools based on user queries.
 
-NOTE: natural_language_search is intentionally excluded - we want precise tool selection.
+IMPORTANT: This catalog reflects the ACTUAL tools available in the system.
+All parameters and descriptions match the real Neo4j schema and query implementations.
 """
 
 from typing import List, Dict, Any
 
 TOOL_CATALOG = [
     # =================================================================
-    # CORE SEARCH TOOLS (14 tools) - excludes natural_language_search
+    # SYSTEM TOOLS (1 tool)
     # =================================================================
     {
+        "name": "health_check",
+        "category": "system",
+        "description": "Check the health status of the Neo4j knowledge graph database and MCP services",
+        "parameters": [],
+        "use_when": [
+            "User asks about system status",
+            "Query mentions health, status, or availability",
+            "Debugging or troubleshooting"
+        ],
+        "keywords": ["health", "status", "working", "available", "online", "check"],
+        "example_queries": [
+            "Is the system working?",
+            "Check health",
+            "System status"
+        ]
+    },
+    
+    # =================================================================
+    # CORE PERSON PROFILE TOOLS (13 tools)
+    # =================================================================
+    {
+        "name": "get_person_complete_profile",
+        "category": "person_profile",
+        "description": "Get complete profile for a person including ALL 35 properties, work history with job descriptions, and education. This is the heavyweight query that returns everything.",
+        "parameters": ["person_id", "person_name"],
+        "optional_params": ["person_id", "person_name"],
+        "use_when": [
+            "User asks for complete information about a person",
+            "Need ALL details including work history and education",
+            "Query asks for full profile or comprehensive data"
+        ],
+        "keywords": ["complete", "full profile", "everything", "all details", "comprehensive"],
+        "example_queries": [
+            "Give me everything about John Smith",
+            "Full profile for Sarah Chen",
+            "Complete information on Mike Johnson"
+        ]
+    },
+    {
         "name": "find_person_by_name",
-        "category": "core_search",
-        "description": "Find a specific person by their name (case-insensitive partial matching)",
+        "category": "person_profile",
+        "description": "Find a person by their name (case-insensitive partial matching). Returns lightweight profile with person_id.",
         "parameters": ["name"],
         "use_when": [
             "User mentions a specific person's name",
-            "Query asks about a particular individual",
-            "Need to identify a person before other operations"
+            "Need to identify a person and get their person_id",
+            "First step before other operations requiring person_id"
         ],
-        "keywords": ["find", "who is", "person", "named", "name", "called"],
+        "keywords": ["find", "who is", "person", "named", "name", "called", "search for"],
         "example_queries": [
             "Find John Smith",
             "Who is Sarah Chen?",
-            "Tell me about Mike Johnson"
+            "Search for Mike Johnson"
         ]
     },
     {
         "name": "find_people_by_skill",
-        "category": "core_search",
-        "description": "Find all people who have a specific skill",
+        "category": "person_profile",
+        "description": "Find all people who have a specific skill. Searches across technical_skills, secondary_skills, and domain_knowledge arrays on Person nodes.",
         "parameters": ["skill"],
         "use_when": [
-            "User asks for people with a specific technical skill",
-            "Query mentions programming languages, technologies, or skills",
+            "User asks for people with a specific skill",
+            "Query mentions programming languages, technologies, or expertise",
             "Need to find experts in a particular area"
         ],
-        "keywords": ["skill", "developer", "engineer", "programmer", "expert", "knows", "has experience with"],
+        "keywords": ["skill", "developer", "engineer", "programmer", "expert", "knows", "has experience with", "proficient in"],
         "example_queries": [
             "Find Python developers",
             "Who knows machine learning?",
@@ -49,8 +89,8 @@ TOOL_CATALOG = [
     },
     {
         "name": "find_people_by_company",
-        "category": "core_search",
-        "description": "Find all people who have worked at a specific company",
+        "category": "person_profile",
+        "description": "Find all people who worked at a specific company (current or past). Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships.",
         "parameters": ["company_name"],
         "use_when": [
             "User asks about people at a specific company",
@@ -65,111 +105,9 @@ TOOL_CATALOG = [
         ]
     },
     {
-        "name": "find_people_by_institution",
-        "category": "core_search",
-        "description": "Find all people who studied at a specific institution or university",
-        "parameters": ["institution_name"],
-        "use_when": [
-            "User asks about people from a specific university",
-            "Query mentions educational institution",
-            "Need to find alumni"
-        ],
-        "keywords": ["studied at", "graduated from", "university", "college", "institution", "alumni", "school"],
-        "example_queries": [
-            "People from Stanford",
-            "Who studied at MIT?",
-            "Stanford graduates"
-        ]
-    },
-    {
-        "name": "find_people_by_location",
-        "category": "core_search",
-        "description": "Find all people in a specific location or city",
-        "parameters": ["location"],
-        "use_when": [
-            "User asks for people in a specific city or location",
-            "Geographic filtering is needed",
-            "Query mentions a location"
-        ],
-        "keywords": ["in", "located in", "from", "living in", "based in", "location", "city"],
-        "example_queries": [
-            "Engineers in San Francisco",
-            "People from New York",
-            "Who lives in Seattle?"
-        ]
-    },
-    {
-        "name": "find_people_with_multiple_skills",
-        "category": "core_search",
-        "description": "Find people who have multiple specific skills with AND/OR logic",
-        "parameters": ["skills_list", "match_type"],
-        "use_when": [
-            "User asks for people with multiple skills",
-            "Query uses 'and' or 'or' between skills",
-            "Need combination of skills"
-        ],
-        "keywords": ["and", "or", "both", "multiple skills", "combination"],
-        "example_queries": [
-            "Python and JavaScript developers",
-            "People with React or Vue",
-            "Engineers with both ML and Python"
-        ]
-    },
-    {
-        "name": "get_person_skills",
-        "category": "core_search",
-        "description": "Get all skills for a specific person",
-        "parameters": ["person_name"],
-        "use_when": [
-            "User asks what skills a person has",
-            "Need to list someone's expertise",
-            "Query asks about person's capabilities"
-        ],
-        "keywords": ["skills", "what can", "expertise", "knows", "proficient in"],
-        "example_queries": [
-            "What skills does John have?",
-            "Show me Sarah's expertise",
-            "List Mike's skills"
-        ]
-    },
-    {
-        "name": "get_person_details",
-        "category": "core_search",
-        "description": "Get comprehensive details about a person including skills, companies, and education",
-        "parameters": ["person_name"],
-        "use_when": [
-            "User asks for full information about a person",
-            "Need complete profile",
-            "Query asks to 'tell me about' someone"
-        ],
-        "keywords": ["details", "about", "profile", "information", "tell me about", "who is"],
-        "example_queries": [
-            "Tell me about John Smith",
-            "Show me Sarah's profile",
-            "Get details for Mike"
-        ]
-    },
-    {
-        "name": "get_person_colleagues",
-        "category": "core_search",
-        "description": "Get all colleagues of a person across all companies they worked at",
-        "parameters": ["person_name"],
-        "use_when": [
-            "User asks about someone's colleagues",
-            "Need to find people who worked with someone",
-            "Query asks about connections or coworkers"
-        ],
-        "keywords": ["colleagues", "coworkers", "worked with", "connections", "teammates"],
-        "example_queries": [
-            "Who are John's colleagues?",
-            "Find Sarah's coworkers",
-            "People who worked with Mike"
-        ]
-    },
-    {
         "name": "find_colleagues_at_company",
-        "category": "core_search",
-        "description": "Find colleagues of a specific person at a given company",
+        "category": "person_profile",
+        "description": "Find colleagues of a specific person at a given company. Requires person_id (get from find_person_by_name first).",
         "parameters": ["person_id", "company_name"],
         "use_when": [
             "User asks about colleagues at a specific company",
@@ -184,16 +122,104 @@ TOOL_CATALOG = [
         ]
     },
     {
+        "name": "find_people_by_institution",
+        "category": "person_profile",
+        "description": "Find all people who studied at a specific institution or university. Uses STUDIED_AT relationships.",
+        "parameters": ["institution_name"],
+        "use_when": [
+            "User asks about people from a specific university or institution",
+            "Query mentions educational institution",
+            "Need to find alumni"
+        ],
+        "keywords": ["studied at", "graduated from", "university", "college", "institution", "alumni", "school"],
+        "example_queries": [
+            "People from Stanford",
+            "Who studied at MIT?",
+            "Stanford graduates"
+        ]
+    },
+    {
+        "name": "find_people_by_location",
+        "category": "person_profile",
+        "description": "Find all people in a specific location or city. Searches current_location property on Person nodes.",
+        "parameters": ["location"],
+        "use_when": [
+            "User asks for people in a specific city or location",
+            "Geographic filtering is needed",
+            "Query mentions a location or city"
+        ],
+        "keywords": ["in", "located in", "from", "living in", "based in", "location", "city"],
+        "example_queries": [
+            "Engineers in San Francisco",
+            "People from New York",
+            "Who lives in Seattle?"
+        ]
+    },
+    {
+        "name": "get_person_skills",
+        "category": "person_profile",
+        "description": "Get all skills for a specific person from their skill arrays (technical_skills, secondary_skills, domain_knowledge).",
+        "parameters": ["person_id", "person_name"],
+        "optional_params": ["person_id", "person_name"],
+        "use_when": [
+            "User asks what skills a person has",
+            "Need to list someone's expertise",
+            "Query asks about person's capabilities or knowledge"
+        ],
+        "keywords": ["skills", "what can", "expertise", "knows", "proficient in", "capabilities"],
+        "example_queries": [
+            "What skills does John have?",
+            "Show me Sarah's expertise",
+            "List Mike's skills"
+        ]
+    },
+    {
+        "name": "find_people_with_multiple_skills",
+        "category": "person_profile",
+        "description": "Find people who have multiple specific skills with AND/OR logic. match_type can be 'any' (OR) or 'all' (AND).",
+        "parameters": ["skills_list", "match_type"],
+        "use_when": [
+            "User asks for people with multiple skills",
+            "Query uses 'and' or 'or' between skills",
+            "Need combination of skills"
+        ],
+        "keywords": ["and", "or", "both", "multiple skills", "combination", "all of"],
+        "example_queries": [
+            "Python and JavaScript developers",
+            "People with React or Vue",
+            "Engineers with both ML and Python"
+        ]
+    },
+    {
+        "name": "get_person_colleagues",
+        "category": "person_profile",
+        "description": "Get all colleagues of a person across all companies they worked at. Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships.",
+        "parameters": ["person_id", "person_name"],
+        "optional_params": ["person_id", "person_name"],
+        "use_when": [
+            "User asks about someone's colleagues",
+            "Need to find people who worked with someone",
+            "Query asks about connections or coworkers"
+        ],
+        "keywords": ["colleagues", "coworkers", "worked with", "connections", "teammates", "network"],
+        "example_queries": [
+            "Who are John's colleagues?",
+            "Find Sarah's coworkers",
+            "People who worked with Mike"
+        ]
+    },
+    {
         "name": "find_people_by_experience_level",
-        "category": "core_search",
-        "description": "Find people based on their total work experience in months",
+        "category": "person_profile",
+        "description": "Find people based on their total work experience in months. Uses total_experience_months property.",
         "parameters": ["min_months", "max_months"],
+        "optional_params": ["min_months", "max_months"],
         "use_when": [
             "User asks for people with specific experience range",
             "Query mentions years/months of experience",
-            "Need to filter by seniority"
+            "Need to filter by seniority or experience level"
         ],
-        "keywords": ["experience", "years", "senior", "junior", "experienced", "5+ years"],
+        "keywords": ["experience", "years", "months", "senior", "junior", "experienced", "5+ years"],
         "example_queries": [
             "Developers with 5+ years experience",
             "Senior engineers",
@@ -202,15 +228,15 @@ TOOL_CATALOG = [
     },
     {
         "name": "get_company_employees",
-        "category": "core_search",
-        "description": "Get all employees (past and present) of a specific company",
+        "category": "person_profile",
+        "description": "Get all employees (past and present) of a specific company. Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships.",
         "parameters": ["company_name"],
         "use_when": [
             "User asks for all employees of a company",
             "Need complete list of company workers",
-            "Query asks 'who works/worked at'"
+            "Query asks 'who works/worked at' or 'all employees'"
         ],
-        "keywords": ["all employees", "everyone at", "all people at", "workforce"],
+        "keywords": ["all employees", "everyone at", "all people at", "workforce", "team at"],
         "example_queries": [
             "All employees at Google",
             "Everyone who worked at Microsoft",
@@ -218,54 +244,37 @@ TOOL_CATALOG = [
         ]
     },
     {
-        "name": "get_skill_popularity",
-        "category": "core_search",
-        "description": "Get the most popular skills by counting how many people have each skill",
-        "parameters": ["limit"],
+        "name": "get_person_details",
+        "category": "person_profile",
+        "description": "Get comprehensive details about a person including skills, companies, and education - summary view (lighter than get_person_complete_profile).",
+        "parameters": ["person_id", "person_name"],
+        "optional_params": ["person_id", "person_name"],
         "use_when": [
-            "User asks about most common skills",
-            "Need statistics on skills",
-            "Query asks 'what are popular skills'"
+            "User asks for details about a person",
+            "Need summary information (not full profile)",
+            "Query asks 'tell me about' or 'details on'"
         ],
-        "keywords": ["popular skills", "most common", "top skills", "skill statistics"],
+        "keywords": ["details", "about", "information", "tell me about", "summary"],
         "example_queries": [
-            "What are the most popular skills?",
-            "Show me top 10 skills",
-            "Most common technologies"
-        ]
-    },
-    # NOTE: natural_language_search tool is intentionally excluded
-    # We want specific, targeted tool selection rather than broad AI search
-    {
-        "name": "health_check",
-        "category": "core_search",
-        "description": "Check the health status of the knowledge graph database and services",
-        "parameters": [],
-        "use_when": [
-            "User asks about system status",
-            "Query mentions health or status",
-            "Debugging purposes"
-        ],
-        "keywords": ["health", "status", "working", "available", "online"],
-        "example_queries": [
-            "Is the system working?",
-            "Check health",
-            "System status"
+            "Tell me about John Smith",
+            "Details on Sarah Chen",
+            "Information about Mike"
         ]
     },
     
     # =================================================================
-    # JOB DESCRIPTION ANALYSIS TOOLS (9 tools)
+    # JOB DESCRIPTION ANALYSIS TOOLS (5 tools)
     # =================================================================
     {
         "name": "get_person_job_descriptions",
         "category": "job_analysis",
-        "description": "Get all job descriptions for a person with company and role details",
-        "parameters": ["person_name"],
+        "description": "Get all job descriptions for a person with company and role details. Accesses description property on work relationships.",
+        "parameters": ["person_id", "person_name"],
+        "optional_params": ["person_id", "person_name"],
         "use_when": [
             "User asks about someone's work history",
             "Need detailed job descriptions",
-            "Query asks about roles or responsibilities"
+            "Query asks about roles, responsibilities, or what someone did"
         ],
         "keywords": ["job description", "work history", "roles", "responsibilities", "what did", "work experience"],
         "example_queries": [
@@ -277,14 +286,14 @@ TOOL_CATALOG = [
     {
         "name": "search_job_descriptions_by_keywords",
         "category": "job_analysis",
-        "description": "Search for people based on keywords in their job descriptions",
+        "description": "Search for people based on keywords in their job descriptions. match_type can be 'any' (OR) or 'all' (AND).",
         "parameters": ["keywords", "match_type"],
         "use_when": [
             "User searches for experience with specific keywords",
             "Need to find contextual mentions in job descriptions",
-            "Query asks about specific experience or responsibilities"
+            "Query asks about specific experience, responsibilities, or achievements"
         ],
-        "keywords": ["experience with", "worked on", "responsible for", "managed", "developed"],
+        "keywords": ["experience with", "worked on", "responsible for", "managed", "developed", "built"],
         "example_queries": [
             "Who worked on microservices?",
             "Find people who managed teams",
@@ -294,14 +303,14 @@ TOOL_CATALOG = [
     {
         "name": "find_technical_skills_in_descriptions",
         "category": "job_analysis",
-        "description": "Find people who mention specific technical skills in their job descriptions",
+        "description": "Find people who mention specific technical skills in their job descriptions. Goes beyond structured skill arrays to find contextual mentions.",
         "parameters": ["tech_keywords"],
         "use_when": [
             "User looks for specific technical mentions",
             "Need to find contextual technical expertise",
-            "Query asks about technologies used in work"
+            "Query asks about technologies used in actual work"
         ],
-        "keywords": ["used", "worked with", "implemented", "built with", "technology"],
+        "keywords": ["used", "worked with", "implemented", "built with", "technology", "technical"],
         "example_queries": [
             "Who used Kubernetes in their work?",
             "Find people who built with React",
@@ -311,14 +320,14 @@ TOOL_CATALOG = [
     {
         "name": "find_leadership_indicators",
         "category": "job_analysis",
-        "description": "Find people with leadership indicators in their job descriptions",
+        "description": "Find people with leadership indicators in their job descriptions. Looks for management, team lead, and leadership-related keywords.",
         "parameters": [],
         "use_when": [
             "User asks for leaders or managers",
             "Need to identify leadership experience",
-            "Query mentions management or leadership"
+            "Query mentions management, leadership, or team lead"
         ],
-        "keywords": ["leader", "manager", "lead", "director", "head of", "managed team"],
+        "keywords": ["leader", "manager", "lead", "director", "head of", "managed team", "leadership"],
         "example_queries": [
             "Find engineering managers",
             "Who has leadership experience?",
@@ -326,88 +335,20 @@ TOOL_CATALOG = [
         ]
     },
     {
-        "name": "find_achievement_patterns",
-        "category": "job_analysis",
-        "description": "Find people with quantifiable achievements in their job descriptions",
-        "parameters": [],
-        "use_when": [
-            "User asks for high achievers",
-            "Need to find people with measurable impact",
-            "Query mentions achievements or results"
-        ],
-        "keywords": ["achieved", "improved", "increased", "reduced", "metrics", "results", "impact"],
-        "example_queries": [
-            "Find high performers",
-            "Who has measurable achievements?",
-            "People with proven results"
-        ]
-    },
-    {
-        "name": "analyze_career_progression",
-        "category": "job_analysis",
-        "description": "Analyze a person's career progression by examining job titles and descriptions over time",
-        "parameters": ["person_name"],
-        "use_when": [
-            "User asks about career growth",
-            "Need to understand career trajectory",
-            "Query asks how someone progressed"
-        ],
-        "keywords": ["career progression", "career path", "growth", "advancement", "trajectory"],
-        "example_queries": [
-            "How did John's career progress?",
-            "Show me Sarah's career growth",
-            "Analyze Mike's career path"
-        ]
-    },
-    {
         "name": "find_domain_experts",
         "category": "job_analysis",
-        "description": "Find people with deep domain expertise based on job description analysis",
+        "description": "Find people with deep domain expertise based on job description analysis. Requires at least 2 jobs in the domain.",
         "parameters": ["domain_keywords"],
         "use_when": [
             "User asks for domain experts",
             "Need to find specialists in a field",
-            "Query mentions specific domain or industry"
+            "Query mentions specific domain, industry, or vertical"
         ],
         "keywords": ["expert in", "specialist", "domain", "industry", "fintech", "healthcare", "e-commerce"],
         "example_queries": [
             "Find fintech experts",
             "Who specializes in healthcare?",
             "E-commerce domain experts"
-        ]
-    },
-    {
-        "name": "find_similar_career_paths",
-        "category": "job_analysis",
-        "description": "Find people with similar career paths to a reference person",
-        "parameters": ["reference_person_name", "similarity_threshold"],
-        "use_when": [
-            "User asks for people with similar backgrounds",
-            "Need to find comparable career trajectories",
-            "Query asks 'who is similar to'"
-        ],
-        "keywords": ["similar to", "like", "comparable", "same path", "similar background"],
-        "example_queries": [
-            "Find people similar to John",
-            "Who has a career like Sarah's?",
-            "Similar backgrounds to Mike"
-        ]
-    },
-    {
-        "name": "find_role_transition_patterns",
-        "category": "job_analysis",
-        "description": "Find people who transitioned from one type of role to another",
-        "parameters": ["from_role_keywords", "to_role_keywords"],
-        "use_when": [
-            "User asks about career transitions",
-            "Need to find people who switched roles",
-            "Query mentions career pivots or changes"
-        ],
-        "keywords": ["transitioned", "moved from", "switched", "pivot", "changed from"],
-        "example_queries": [
-            "Who moved from engineering to management?",
-            "Find people who transitioned to leadership",
-            "Engineers who became product managers"
         ]
     }
 ]
