@@ -66,7 +66,7 @@ class QueryManager:
             p.email as email,
             p.phone as phone,
             p.linkedin_profile as linkedin_profile,
-            p.location as location,
+            p.current_location as location,
             p.current_company as current_company,
             p.current_title as current_title,
             p.total_experience_months as total_experience_months,
@@ -115,7 +115,7 @@ class QueryManager:
             p.summary as summary,
             p.linkedin_profile as linkedin_profile,
             p.email as email,
-            p.location as location,
+            p.current_location as location,
             p.current_company as current_company,
             p.current_title as current_title,
             p.total_experience_months as total_experience_months
@@ -167,7 +167,7 @@ class QueryManager:
             r.is_current as is_current,
             r.start_date as start_date,
             r.end_date as end_date,
-            p.location as location
+            p.current_location as location
         ORDER BY r.is_current DESC, name
         """
         return self.db.execute_query(query, params={"company_name": company_name})
@@ -179,11 +179,11 @@ class QueryManager:
         Returns lightweight profile with person_id.
         """
         query = """
-        MATCH (p1:Person {id: $person_id})-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
+        MATCH (p1:Person {person_id: $person_id})-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
               <-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]-(p2:Person)
         WHERE toLower(c.name) CONTAINS toLower($company_name) AND p1 <> p2
         RETURN 
-            p2.id as person_id,
+            p2.person_id as person_id,
             p2.name as colleague_name, 
             p2.headline as colleague_headline,
             p2.summary as colleague_summary,
@@ -211,7 +211,7 @@ class QueryManager:
             p.summary as summary,
             p.current_company as current_company,
             p.current_title as current_title,
-            p.location as location,
+            p.current_location as location,
             p.email as email,
             p.linkedin_profile as linkedin_profile,
             i.name as institution_name
@@ -226,13 +226,13 @@ class QueryManager:
         """
         query = """
         MATCH (p:Person)
-        WHERE toLower(p.location) CONTAINS toLower($location)
+        WHERE toLower(p.current_location) CONTAINS toLower($location)
         RETURN 
             p.person_id as person_id,
             p.name as name, 
             p.headline as headline, 
             p.summary as summary,
-            p.location as location,
+            p.current_location as location,
             p.current_company as current_company,
             p.current_title as current_title,
             p.email as email,
@@ -338,7 +338,7 @@ class QueryManager:
         Returns lightweight profile with person_id for each colleague.
         """
         if person_id:
-            match_clause = "MATCH (p1:Person {id: $person_id})"
+            match_clause = "MATCH (p1:Person {person_id: $person_id})"
             params = {"person_id": person_id}
         elif person_name:
             match_clause = "MATCH (p1:Person) WHERE toLower(p1.name) CONTAINS toLower($person_name)"
@@ -352,7 +352,7 @@ class QueryManager:
               <-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]-(p2:Person)
         WHERE p1 <> p2
         RETURN 
-            p2.id as person_id,
+            p2.person_id as person_id,
             p2.name as colleague_name, 
             p2.headline as colleague_headline,
             p2.summary as colleague_summary,
@@ -394,7 +394,7 @@ class QueryManager:
             p.total_experience_months as experience_months,
             p.current_company as current_company,
             p.current_title as current_title,
-            p.location as location,
+            p.current_location as location,
             p.email as email,
             p.linkedin_profile as linkedin_profile
         ORDER BY p.total_experience_months DESC
@@ -420,7 +420,7 @@ class QueryManager:
             r.is_current as is_current,
             r.start_date as start_date,
             r.end_date as end_date,
-            p.location as location
+            p.current_location as location
         ORDER BY r.is_current DESC, name
         """
         return self.db.execute_query(query, params={"company_name": company_name})
@@ -466,7 +466,7 @@ class QueryManager:
             p.name as name, 
             p.headline as headline, 
             p.summary as summary,
-            p.location as location,
+            p.current_location as location,
             p.linkedin_profile as linkedin_profile, 
             p.email as email,
             p.total_experience_months as experience_months,
@@ -547,7 +547,7 @@ class QueryManager:
             r.description as job_description,
             r.is_current as is_current,
             p.email as email,
-            p.location as location
+            p.current_location as location
         ORDER BY p.name
         """
         return self.db.execute_query(query)
@@ -579,7 +579,7 @@ class QueryManager:
             r.start_date as start_date, 
             r.end_date as end_date,
             r.is_current as is_current,
-            p.location as location
+            p.current_location as location
         ORDER BY r.start_date DESC
         """
         return self.db.execute_query(query)
@@ -613,7 +613,7 @@ class QueryManager:
             r.description as job_description,
             r.duration_months as duration_months,
             r.is_current as is_current,
-            p.location as location
+            p.current_location as location
         ORDER BY r.duration_months DESC
         """
         return self.db.execute_query(query)
@@ -648,7 +648,7 @@ class QueryManager:
             r.start_date as start_date, 
             r.end_date as end_date,
             r.is_current as is_current,
-            p.location as location
+            p.current_location as location
         ORDER BY p.name
         """
         return self.db.execute_query(query)
@@ -714,7 +714,7 @@ class QueryManager:
             companies, 
             roles,
             p.total_experience_months as total_experience,
-            p.location as location,
+            p.current_location as location,
             p.email as email
         ORDER BY domain_jobs DESC, p.total_experience_months DESC
         """
@@ -732,7 +732,7 @@ class QueryManager:
             similarity_threshold: Minimum number of similar elements (companies/roles)
         """
         if reference_person_id:
-            ref_match = "MATCH (ref:Person {id: $reference_id})"
+            ref_match = "MATCH (ref:Person {person_id: $reference_id})"
             params = {"reference_id": reference_person_id, "threshold": similarity_threshold}
         elif reference_person_name:
             ref_match = "MATCH (ref:Person) WHERE toLower(ref.name) CONTAINS toLower($reference_name)"
@@ -769,7 +769,7 @@ class QueryManager:
             common_companies, 
             common_titles,
             size(common_companies) + size(common_titles) as similarity_score,
-            p.location as location,
+            p.current_location as location,
             p.email as email,
             p.current_company as current_company
         ORDER BY similarity_score DESC
@@ -811,7 +811,7 @@ class QueryManager:
             r2.start_date as to_start,
             r1.description as from_description, 
             r2.description as to_description,
-            p.location as location,
+            p.current_location as location,
             p.email as email
         ORDER BY r2.start_date DESC
         """
