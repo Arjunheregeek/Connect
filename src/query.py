@@ -39,7 +39,7 @@ class QueryManager:
         OPTIONAL MATCH (p)-[work:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WITH p, collect(DISTINCT {{
             company: c.name,
-            title: work.title,
+            title: work.role,
             description: work.description,
             start_date: work.start_date,
             end_date: work.end_date,
@@ -163,7 +163,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name,
-            r.title as title,
+            r.role as title,
             r.is_current as is_current,
             r.start_date as start_date,
             r.end_date as end_date,
@@ -416,7 +416,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name,
-            r.title as title,
+            r.role as title,
             r.is_current as is_current,
             r.start_date as start_date,
             r.end_date as end_date,
@@ -503,7 +503,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name,
-            r.title as job_title,
+            r.role as job_title,
             r.description as job_description,
             r.start_date as start_date,
             r.end_date as end_date,
@@ -543,7 +543,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name, 
-            r.title as job_title,
+            r.role as job_title,
             r.description as job_description,
             r.is_current as is_current,
             p.email as email,
@@ -574,7 +574,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name, 
-            r.title as job_title,
+            r.role as job_title,
             r.description as job_description,
             r.start_date as start_date, 
             r.end_date as end_date,
@@ -609,7 +609,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name, 
-            r.title as job_title,
+            r.role as job_title,
             r.description as job_description,
             r.duration_months as duration_months,
             r.is_current as is_current,
@@ -643,7 +643,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name, 
-            r.title as job_title,
+            r.role as job_title,
             r.description as job_description,
             r.start_date as start_date, 
             r.end_date as end_date,
@@ -677,7 +677,7 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c.name as company_name,
-            r.title as job_title,
+            r.role as job_title,
             r.description as job_description,
             r.start_date as start_date,
             r.end_date as end_date,
@@ -703,7 +703,7 @@ class QueryManager:
         MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE r.description IS NOT NULL AND ({where_clause})
         WITH p, count(r) as domain_jobs, collect(DISTINCT c.name) as companies,
-             collect(DISTINCT r.title) as roles
+             collect(DISTINCT r.role) as roles
         WHERE domain_jobs >= 2  // At least 2 jobs in the domain
         RETURN 
             p.person_id as person_id,
@@ -745,14 +745,14 @@ class QueryManager:
         {ref_match}
         MATCH (ref)-[ref_r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(ref_c:Company)
         WITH ref, collect(DISTINCT ref_c.name) as ref_companies, 
-             collect(DISTINCT toLower(ref_r.title)) as ref_titles
+             collect(DISTINCT toLower(ref_r.role)) as ref_titles
         
         // Find people with overlapping companies or similar titles
         MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE p <> ref
         WITH ref, ref_companies, ref_titles, p,
              collect(DISTINCT c.name) as person_companies,
-             collect(DISTINCT toLower(r.title)) as person_titles
+             collect(DISTINCT toLower(r.role)) as person_titles
         
         // Calculate similarity
         WITH ref, p, ref_companies, ref_titles, person_companies, person_titles,
@@ -786,8 +786,8 @@ class QueryManager:
             from_role_keywords: Keywords for the starting role type
             to_role_keywords: Keywords for the target role type
         """
-        from_conditions = [f"toLower(r1.title) CONTAINS '{keyword}'" for keyword in from_role_keywords]
-        to_conditions = [f"toLower(r2.title) CONTAINS '{keyword}'" for keyword in to_role_keywords] 
+        from_conditions = [f"toLower(r1.role) CONTAINS '{keyword}'" for keyword in from_role_keywords]
+        to_conditions = [f"toLower(r2.role) CONTAINS '{keyword}'" for keyword in to_role_keywords] 
         
         from_clause = " OR ".join(from_conditions)
         to_clause = " OR ".join(to_conditions)
@@ -804,10 +804,10 @@ class QueryManager:
             p.headline as headline,
             p.summary as summary,
             c1.name as from_company, 
-            r1.title as from_role, 
+            r1.role as from_role, 
             r1.start_date as from_start,
             c2.name as to_company, 
-            r2.title as to_role, 
+            r2.role as to_role, 
             r2.start_date as to_start,
             r1.description as from_description, 
             r2.description as to_description,

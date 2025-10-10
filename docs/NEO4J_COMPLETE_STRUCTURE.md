@@ -134,7 +134,7 @@ Institution {
 #### Properties:
 ```
 CURRENTLY_WORKS_AT {
-  title: String                        // Job title
+  role: String                         // Job title
   start_date: String                   // When they started
   end_date: String                     // null for current jobs
   duration_months: Integer             // Duration in months
@@ -147,7 +147,7 @@ CURRENTLY_WORKS_AT {
 
 **Example**:
 ```cypher
-(Person {name: "John Doe"})-[:CURRENTLY_WORKS_AT {title: "Senior Engineer", is_current: true}]->(Company {name: "Google"})
+(Person {name: "John Doe"})-[:CURRENTLY_WORKS_AT {role: "Senior Engineer", is_current: true}]->(Company {name: "Google"})
 ```
 
 ---
@@ -159,7 +159,7 @@ CURRENTLY_WORKS_AT {
 #### Properties:
 ```
 PREVIOUSLY_WORKED_AT {
-  title: String                        // Job title
+  role: String                         // Job title
   start_date: String                   // Start date
   end_date: String                     // End date
   duration_months: Integer             // Duration in months
@@ -172,8 +172,8 @@ PREVIOUSLY_WORKED_AT {
 
 **Example**:
 ```cypher
-(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {title: "Engineer", end_date: "2022-01"}]->(Company {name: "Microsoft"})
-(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {title: "Intern", end_date: "2020-06"}]->(Company {name: "Amazon"})
+(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {role: "Engineer", end_date: "2022-01"}]->(Company {name: "Microsoft"})
+(Person {name: "John Doe"})-[:PREVIOUSLY_WORKED_AT {role: "Intern", end_date: "2020-06"}]->(Company {name: "Amazon"})
 ```
 
 **Note**: One person can have multiple PREVIOUSLY_WORKED_AT relationships (one per previous company)
@@ -187,8 +187,7 @@ PREVIOUSLY_WORKED_AT {
 #### Properties:
 ```
 STUDIED_AT {
-  degree: String                       // "BS", "MS", "PhD", "MBA", etc.
-  field_of_study: String               // Major/specialization
+  degree: String                       // "B.Tech., Mechanical Engineering" (includes field)
   start_year: Integer                  // Start year
   end_year: Integer                    // Graduation year
   created_at: DateTime
@@ -333,7 +332,7 @@ Person: "Ashray Malhotra" {
     ├─[:PREVIOUSLY_WORKED_AT {role: "Member Company", end_date: "Oct 2023"}]─► Company: "Techstars"
     ├─[:PREVIOUSLY_WORKED_AT {role: "Founder", end_date: "June 2018"}]───────► Company: "SoundRex"
     │
-    └─[:STUDIED_AT {degree: "B.Tech., M.Tech", field: "Electrical and Electronics Engineering", start_year: 2011, end_year: 2016}]─► Institution: "IIT Bombay"
+    └─[:STUDIED_AT {degree: "B.Tech., M.Tech, Electrical and Electronics Engineering", start_year: 2011, end_year: 2016}]─► Institution: "IIT Bombay"
 ```
 
 ---
