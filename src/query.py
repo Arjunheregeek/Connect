@@ -4,6 +4,8 @@ class QueryManager:
     """
     Handles all read-only queries to the Neo4j database to retrieve
     information from the knowledge graph.
+    Updated to work with the new simplified schema where skills are arrays
+    and work relationships are split into CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT.
     """
     def __init__(self, db_driver):
         """
@@ -11,49 +13,185 @@ class QueryManager:
         """
         self.db = db_driver
 
+    def get_person_complete_profile(self, person_id=None, person_name=None):
+        """
+        Returns the complete profile for a person including ALL 35 properties,
+        work history with job descriptions, and education history.
+        This is the heavyweight query that returns everything.
+        
+        Args:
+            person_id: The unique person ID (preferred)
+            person_name: The person's name (alternative identifier)
+        """
+        if person_id:
+            match_clause = "MATCH (p:Person {person_id: $person_id})"
+            params = {"person_id": person_id}
+        elif person_name:
+            match_clause = "MATCH (p:Person) WHERE toLower(p.name) CONTAINS toLower($person_name)"
+            params = {"person_name": person_name}
+        else:
+            return {"error": "Must provide either person_id or person_name"}
+        
+        query = f"""
+        {match_clause}
+        
+        // Get work history with job descriptions
+        OPTIONAL MATCH (p)-[work:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
+        WITH p, collect(DISTINCT {{
+            company: c.name,
+            title: work.role,
+            description: work.description,
+            start_date: work.start_date,
+            end_date: work.end_date,
+            duration_months: work.duration_months,
+            location: work.location,
+            is_current: work.is_current
+        }}) as work_history
+        
+        // Get education history
+        OPTIONAL MATCH (p)-[edu:STUDIED_AT]->(i:Institution)
+        WITH p, work_history, collect(DISTINCT {{
+            institution: i.name,
+            degree: edu.degree,
+            start_year: edu.start_year,
+            end_year: edu.end_year
+        }}) as education_history
+        
+        // Return ALL 35 properties plus relationships
+        RETURN 
+            p.person_id as person_id,
+            p.name as name,
+            p.headline as headline,
+            p.summary as summary,
+            p.email as email,
+            p.phone as phone,
+            p.linkedin_profile as linkedin_profile,
+            p.current_location as location,
+            p.current_company as current_company,
+            p.current_title as current_title,
+            p.total_experience_months as total_experience_months,
+            p.technical_skills as technical_skills,
+            p.secondary_skills as secondary_skills,
+            p.domain_knowledge as domain_knowledge,
+            p.certifications as certifications,
+            p.languages as languages,
+            p.industry as industry,
+            p.seniority_level as seniority_level,
+            p.function as function,
+            p.company_size_preference as company_size_preference,
+            p.willing_to_relocate as willing_to_relocate,
+            p.remote_work_preference as remote_work_preference,
+            p.expected_salary_min as expected_salary_min,
+            p.expected_salary_max as expected_salary_max,
+            p.currency as currency,
+            p.notice_period_days as notice_period_days,
+            p.actively_looking as actively_looking,
+            p.open_to_opportunities as open_to_opportunities,
+            p.preferred_locations as preferred_locations,
+            p.work_authorization as work_authorization,
+            p.visa_sponsorship_needed as visa_sponsorship_needed,
+            p.github_profile as github_profile,
+            p.portfolio_url as portfolio_url,
+            p.twitter_handle as twitter_handle,
+            p.created_at as created_at,
+            p.updated_at as updated_at,
+            work_history,
+            education_history
+        """
+        return self.db.execute_query(query, params=params)
+
     def find_person_by_name(self, name):
         """
         Finds a person by their full name (case-insensitive).
+        Returns lightweight profile with person_id for agent tracking.
         """
         query = """
         MATCH (p:Person)
         WHERE toLower(p.name) CONTAINS toLower($name)
-        RETURN p.name as name, p.headline as headline, p.linkedin_profile as profile
+        RETURN 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline, 
+            p.summary as summary,
+            p.linkedin_profile as linkedin_profile,
+            p.email as email,
+            p.current_location as location,
+            p.current_company as current_company,
+            p.current_title as current_title,
+            p.total_experience_months as total_experience_months
         """
         return self.db.execute_query(query, params={"name": name})
 
     def find_people_by_skill(self, skill):
         """
         Finds all people who have a specific skill.
+        Skills are stored as arrays on Person nodes: technical_skills, secondary_skills, domain_knowledge.
+        Returns lightweight profile with person_id.
         """
         query = """
-        MATCH (p:Person)-[:HAS_SKILL]->(s:Skill)
-        WHERE s.name = toLower($skill)
-        RETURN p.name as name, p.headline as headline
+        MATCH (p:Person)
+        WHERE toLower($skill) IN [s IN p.technical_skills | toLower(s)]
+           OR toLower($skill) IN [s IN p.secondary_skills | toLower(s)]
+           OR toLower($skill) IN [s IN p.domain_knowledge | toLower(s)]
+        RETURN 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline,
+            p.summary as summary,
+            p.current_company as current_company,
+            p.current_title as current_title,
+            p.technical_skills as technical_skills,
+            p.secondary_skills as secondary_skills,
+            p.domain_knowledge as domain_knowledge,
+            p.total_experience_months as total_experience_months
         ORDER BY name
         """
         return self.db.execute_query(query, params={"skill": skill})
 
     def find_people_by_company(self, company_name):
         """
-        Finds all people who have worked at a specific company.
+        Finds all people who have worked at a specific company (current or past).
+        Uses split relationships: CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT.
+        Returns lightweight profile with person_id.
         """
         query = """
-        MATCH (p:Person)-[:WORKS_AT]->(c:Company)
+        MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE toLower(c.name) CONTAINS toLower($company_name)
-        RETURN DISTINCT p.name as name, p.headline as headline
-        ORDER BY name
+        RETURN DISTINCT 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline,
+            p.summary as summary,
+            c.name as company_name,
+            r.role as title,
+            r.is_current as is_current,
+            r.start_date as start_date,
+            r.end_date as end_date,
+            p.current_location as location
+        ORDER BY r.is_current DESC, name
         """
         return self.db.execute_query(query, params={"company_name": company_name})
     
     def find_colleagues_at_company(self, person_id, company_name):
         """
         Finds who a specific person worked with at a given company.
+        Uses split relationships for accurate colleague matching.
+        Returns lightweight profile with person_id.
         """
         query = """
-        MATCH (p1:Person {id: $person_id})-[:WORKS_AT]->(c:Company)<-[:WORKS_AT]-(p2:Person)
+        MATCH (p1:Person {person_id: $person_id})-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
+              <-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]-(p2:Person)
         WHERE toLower(c.name) CONTAINS toLower($company_name) AND p1 <> p2
-        RETURN p2.name as colleague_name, p2.headline as colleague_headline
+        RETURN 
+            p2.person_id as person_id,
+            p2.name as colleague_name, 
+            p2.headline as colleague_headline,
+            p2.summary as colleague_summary,
+            p2.current_company as current_company,
+            p2.current_title as current_title,
+            p2.email as email,
+            p2.linkedin_profile as linkedin_profile,
+            c.name as company_name
         ORDER BY colleague_name
         """
         return self.db.execute_query(query, params={"person_id": person_id, "company_name": company_name})
@@ -61,11 +199,22 @@ class QueryManager:
     def find_people_by_institution(self, institution_name):
         """
         Finds all people who studied at a specific institution.
+        Returns lightweight profile with person_id.
         """
         query = """
         MATCH (p:Person)-[:STUDIED_AT]->(i:Institution)
         WHERE toLower(i.name) CONTAINS toLower($institution_name)
-        RETURN DISTINCT p.name as name, p.headline as headline
+        RETURN DISTINCT 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline,
+            p.summary as summary,
+            p.current_company as current_company,
+            p.current_title as current_title,
+            p.current_location as location,
+            p.email as email,
+            p.linkedin_profile as linkedin_profile,
+            i.name as institution_name
         ORDER BY name
         """
         return self.db.execute_query(query, params={"institution_name": institution_name})
@@ -73,75 +222,153 @@ class QueryManager:
     def find_people_by_location(self, location):
         """
         Finds all people in a specific location.
+        Returns lightweight profile with person_id.
         """
         query = """
         MATCH (p:Person)
-        WHERE toLower(p.location) CONTAINS toLower($location)
-        RETURN p.name as name, p.headline as headline, p.location as location
+        WHERE toLower(p.current_location) CONTAINS toLower($location)
+        RETURN 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline, 
+            p.summary as summary,
+            p.current_location as location,
+            p.current_company as current_company,
+            p.current_title as current_title,
+            p.email as email,
+            p.linkedin_profile as linkedin_profile,
+            p.total_experience_months as total_experience_months
         ORDER BY name
         """
         return self.db.execute_query(query, params={"location": location})
 
-    def get_person_skills(self, person_name):
+    def get_person_skills(self, person_id=None, person_name=None):
         """
-        Gets all skills for a specific person.
+        Gets all skills for a specific person from their skill arrays.
+        Skills are stored directly on Person nodes as arrays.
+        Returns person_id and all skill categories.
         """
-        query = """
-        MATCH (p:Person)-[:HAS_SKILL]->(s:Skill)
-        WHERE toLower(p.name) CONTAINS toLower($person_name)
-        RETURN p.name as person_name, collect(s.name) as skills
+        if person_id:
+            match_clause = "MATCH (p:Person {person_id: $person_id})"
+            params = {"person_id": person_id}
+        elif person_name:
+            match_clause = "MATCH (p:Person) WHERE toLower(p.name) CONTAINS toLower($person_name)"
+            params = {"person_name": person_name}
+        else:
+            return {"error": "Must provide either person_id or person_name"}
+        
+        query = f"""
+        {match_clause}
+        RETURN 
+            p.person_id as person_id,
+            p.name as person_name, 
+            p.headline as headline,
+            p.summary as summary,
+            p.technical_skills as technical_skills,
+            p.secondary_skills as secondary_skills,
+            p.domain_knowledge as domain_knowledge
         """
-        return self.db.execute_query(query, params={"person_name": person_name})
+        return self.db.execute_query(query, params=params)
 
     def find_people_with_multiple_skills(self, skills_list, match_type="any"):
         """
-        Finds people who have multiple skills.
+        Finds people who have multiple skills from their skill arrays.
         
         Args:
             skills_list: List of skills to search for
             match_type: "any" to match any skill, "all" to match all skills
+        Returns lightweight profile with person_id and matched skills.
         """
+        # Convert skills to lowercase for case-insensitive matching
+        skills_lower = [skill.lower() for skill in skills_list]
+        
         if match_type == "all":
-            # Find people who have ALL the specified skills
+            # Find people who have ALL the specified skills across all skill arrays
             query = """
-            MATCH (p:Person)-[:HAS_SKILL]->(s:Skill)
-            WHERE s.name IN $skills_list
-            WITH p, count(DISTINCT s.name) as skill_count
-            WHERE skill_count = $required_count
-            RETURN p.name as name, p.headline as headline
+            MATCH (p:Person)
+            WITH p, 
+                 [s IN p.technical_skills | toLower(s)] + 
+                 [s IN p.secondary_skills | toLower(s)] + 
+                 [s IN p.domain_knowledge | toLower(s)] as all_skills
+            WITH p, all_skills, $skills_list as required_skills
+            WHERE ALL(skill IN required_skills WHERE skill IN all_skills)
+            RETURN 
+                p.person_id as person_id,
+                p.name as name, 
+                p.headline as headline,
+                p.summary as summary,
+                p.technical_skills as technical_skills,
+                p.secondary_skills as secondary_skills,
+                p.domain_knowledge as domain_knowledge,
+                p.current_company as current_company,
+                p.current_title as current_title,
+                p.total_experience_months as total_experience_months
             ORDER BY name
             """
-            return self.db.execute_query(query, params={
-                "skills_list": [skill.lower() for skill in skills_list],
-                "required_count": len(skills_list)
-            })
+            return self.db.execute_query(query, params={"skills_list": skills_lower})
         else:
             # Find people who have ANY of the specified skills
             query = """
-            MATCH (p:Person)-[:HAS_SKILL]->(s:Skill)
-            WHERE s.name IN $skills_list
-            RETURN DISTINCT p.name as name, p.headline as headline
+            MATCH (p:Person)
+            WITH p, 
+                 [s IN p.technical_skills | toLower(s)] + 
+                 [s IN p.secondary_skills | toLower(s)] + 
+                 [s IN p.domain_knowledge | toLower(s)] as all_skills
+            WITH p, all_skills, $skills_list as search_skills
+            WHERE ANY(skill IN search_skills WHERE skill IN all_skills)
+            RETURN 
+                p.person_id as person_id,
+                p.name as name, 
+                p.headline as headline,
+                p.summary as summary,
+                p.technical_skills as technical_skills,
+                p.secondary_skills as secondary_skills,
+                p.domain_knowledge as domain_knowledge,
+                p.current_company as current_company,
+                p.current_title as current_title,
+                p.total_experience_months as total_experience_months
             ORDER BY name
             """
-            return self.db.execute_query(query, params={
-                "skills_list": [skill.lower() for skill in skills_list]
-            })
+            return self.db.execute_query(query, params={"skills_list": skills_lower})
 
-    def get_person_colleagues(self, person_name):
+    def get_person_colleagues(self, person_id=None, person_name=None):
         """
         Gets all colleagues of a person across all companies they worked at.
+        Uses split relationships for accurate colleague matching.
+        Returns lightweight profile with person_id for each colleague.
         """
-        query = """
-        MATCH (p1:Person)-[:WORKS_AT]->(c:Company)<-[:WORKS_AT]-(p2:Person)
-        WHERE toLower(p1.name) CONTAINS toLower($person_name) AND p1 <> p2
-        RETURN p2.name as colleague_name, p2.headline as colleague_headline, c.name as company_name
+        if person_id:
+            match_clause = "MATCH (p1:Person {person_id: $person_id})"
+            params = {"person_id": person_id}
+        elif person_name:
+            match_clause = "MATCH (p1:Person) WHERE toLower(p1.name) CONTAINS toLower($person_name)"
+            params = {"person_name": person_name}
+        else:
+            return {"error": "Must provide either person_id or person_name"}
+        
+        query = f"""
+        {match_clause}
+        MATCH (p1)-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
+              <-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]-(p2:Person)
+        WHERE p1 <> p2
+        RETURN 
+            p2.person_id as person_id,
+            p2.name as colleague_name, 
+            p2.headline as colleague_headline,
+            p2.summary as colleague_summary,
+            p2.current_company as current_company,
+            p2.current_title as current_title,
+            p2.email as email,
+            p2.linkedin_profile as linkedin_profile,
+            c.name as company_name
         ORDER BY company_name, colleague_name
         """
-        return self.db.execute_query(query, params={"person_name": person_name})
+        return self.db.execute_query(query, params=params)
 
     def find_people_by_experience_level(self, min_months=None, max_months=None):
         """
         Finds people based on their total experience in months.
+        Returns lightweight profile with person_id.
         """
         conditions = []
         params = {}
@@ -159,7 +386,17 @@ class QueryManager:
         query = f"""
         MATCH (p:Person)
         {where_clause}
-        RETURN p.name as name, p.headline as headline, p.total_experience_months as experience_months
+        RETURN 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline, 
+            p.summary as summary,
+            p.total_experience_months as experience_months,
+            p.current_company as current_company,
+            p.current_title as current_title,
+            p.current_location as location,
+            p.email as email,
+            p.linkedin_profile as linkedin_profile
         ORDER BY p.total_experience_months DESC
         """
         return self.db.execute_query(query, params=params)
@@ -167,70 +404,105 @@ class QueryManager:
     def get_company_employees(self, company_name):
         """
         Gets all employees (past and present) of a specific company.
+        Uses split relationships to show current vs past employees.
+        Returns lightweight profile with person_id.
         """
         query = """
-        MATCH (p:Person)-[:WORKS_AT]->(c:Company)
+        MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE toLower(c.name) CONTAINS toLower($company_name)
-        RETURN p.name as name, p.headline as headline, c.name as company_name
-        ORDER BY name
+        RETURN 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline,
+            p.summary as summary,
+            c.name as company_name,
+            r.role as title,
+            r.is_current as is_current,
+            r.start_date as start_date,
+            r.end_date as end_date,
+            p.current_location as location
+        ORDER BY r.is_current DESC, name
         """
         return self.db.execute_query(query, params={"company_name": company_name})
 
-    def get_skill_popularity(self, limit=20):
-        """
-        Gets the most popular skills by counting how many people have each skill.
-        """
-        query = """
-        MATCH (p:Person)-[:HAS_SKILL]->(s:Skill)
-        RETURN s.name as skill_name, count(p) as person_count
-        ORDER BY person_count DESC
-        LIMIT $limit
-        """
-        return self.db.execute_query(query, params={"limit": limit})
-
-    def get_person_details(self, person_name):
+    def get_person_details(self, person_id=None, person_name=None):
         """
         Gets comprehensive details about a person including skills, companies, and education.
+        This is similar to get_person_complete_profile but returns a summary view.
+        Returns person_id and aggregated information.
         """
-        query = """
-        MATCH (p:Person)
-        WHERE toLower(p.name) CONTAINS toLower($person_name)
-        OPTIONAL MATCH (p)-[:HAS_SKILL]->(s:Skill)
-        OPTIONAL MATCH (p)-[:WORKS_AT]->(c:Company)
+        if person_id:
+            match_clause = "MATCH (p:Person {person_id: $person_id})"
+            params = {"person_id": person_id}
+        elif person_name:
+            match_clause = "MATCH (p:Person) WHERE toLower(p.name) CONTAINS toLower($person_name)"
+            params = {"person_name": person_name}
+        else:
+            return {"error": "Must provide either person_id or person_name"}
+        
+        query = f"""
+        {match_clause}
+        OPTIONAL MATCH (p)-[:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         OPTIONAL MATCH (p)-[:STUDIED_AT]->(i:Institution)
-        RETURN p.name as name, p.headline as headline, p.location as location,
-               p.linkedin_profile as linkedin_profile, p.email as email,
-               p.total_experience_months as experience_months,
-               collect(DISTINCT s.name) as skills,
-               collect(DISTINCT c.name) as companies,
-               collect(DISTINCT i.name) as institutions
+        RETURN 
+            p.person_id as person_id,
+            p.name as name, 
+            p.headline as headline, 
+            p.summary as summary,
+            p.current_location as location,
+            p.linkedin_profile as linkedin_profile, 
+            p.email as email,
+            p.total_experience_months as experience_months,
+            p.technical_skills as technical_skills,
+            p.secondary_skills as secondary_skills,
+            p.domain_knowledge as domain_knowledge,
+            collect(DISTINCT c.name) as companies,
+            collect(DISTINCT i.name) as institutions
         """
-        return self.db.execute_query(query, params={"person_name": person_name})
+        return self.db.execute_query(query, params=params)
 
-    def get_person_job_descriptions(self, person_name):
+    def get_person_job_descriptions(self, person_id=None, person_name=None):
         """
         Gets all job descriptions for a person with company and role details.
+        Job descriptions are stored on relationship properties.
         This is the foundation for technical skill discovery, behavioral analysis, and career progression.
+        Returns person_id and full job history with descriptions.
         """
-        query = """
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
-        WHERE toLower(p.name) CONTAINS toLower($person_name)
-        RETURN p.name as person_name,
-               c.name as company_name,
-               r.title as job_title,
-               r.description as job_description,
-               r.start_date as start_date,
-               r.end_date as end_date,
-               r.duration_months as duration_months,
-               r.location as job_location
+        if person_id:
+            match_clause = "MATCH (p:Person {person_id: $person_id})"
+            params = {"person_id": person_id}
+        elif person_name:
+            match_clause = "MATCH (p:Person) WHERE toLower(p.name) CONTAINS toLower($person_name)"
+            params = {"person_name": person_name}
+        else:
+            return {"error": "Must provide either person_id or person_name"}
+        
+        query = f"""
+        {match_clause}
+        MATCH (p)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
+        RETURN 
+            p.person_id as person_id,
+            p.name as person_name,
+            p.headline as headline,
+            p.summary as summary,
+            c.name as company_name,
+            r.role as job_title,
+            r.description as job_description,
+            r.start_date as start_date,
+            r.end_date as end_date,
+            r.duration_months as duration_months,
+            r.location as job_location,
+            r.is_current as is_current
         ORDER BY r.start_date DESC
         """
-        return self.db.execute_query(query, params={"person_name": person_name})
+        return self.db.execute_query(query, params=params)
     
     def search_job_descriptions_by_keywords(self, keywords, match_type="any"):
         """
         Search for people based on keywords in their job descriptions.
+        Job descriptions are stored on relationships.
         Useful for finding technical skills, behavioral patterns, or specific experience.
+        Returns person_id and matching job details.
         
         Args:
             keywords: List of keywords to search for in job descriptions
@@ -238,29 +510,36 @@ class QueryManager:
         """
         if match_type == "all":
             # All keywords must be present in job description
-            conditions = [f"toLower(r.description) CONTAINS toLower(${i})" for i in range(len(keywords))]
+            conditions = [f"toLower(r.description) CONTAINS toLower('{keyword}')" for keyword in keywords]
             where_clause = " AND ".join(conditions)
-            params = {str(i): keyword for i, keyword in enumerate(keywords)}
         else:
             # Any keyword can be present
-            conditions = [f"toLower(r.description) CONTAINS toLower(${i})" for i in range(len(keywords))]
+            conditions = [f"toLower(r.description) CONTAINS toLower('{keyword}')" for keyword in keywords]
             where_clause = " OR ".join(conditions)
-            params = {str(i): keyword for i, keyword in enumerate(keywords)}
         
         query = f"""
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
+        MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE r.description IS NOT NULL AND ({where_clause})
-        RETURN DISTINCT p.name as person_name, p.headline as headline,
-               c.name as company_name, r.title as job_title,
-               r.description as job_description
+        RETURN DISTINCT 
+            p.person_id as person_id,
+            p.name as person_name, 
+            p.headline as headline,
+            p.summary as summary,
+            c.name as company_name, 
+            r.role as job_title,
+            r.description as job_description,
+            r.is_current as is_current,
+            p.email as email,
+            p.current_location as location
         ORDER BY p.name
         """
-        return self.db.execute_query(query, params=params)
+        return self.db.execute_query(query)
     
     def find_technical_skills_in_descriptions(self, tech_keywords):
         """
         Find people who mention specific technical skills in their job descriptions.
         Goes beyond structured skills to find contextual technical mentions.
+        Returns person_id and matching job details.
         
         Args:
             tech_keywords: List of technical terms to search for (e.g., ["python", "kubernetes", "machine learning"])
@@ -270,12 +549,20 @@ class QueryManager:
         where_clause = " OR ".join(conditions)
         
         query = f"""
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
+        MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE r.description IS NOT NULL AND ({where_clause})
-        RETURN p.name as person_name, p.headline as headline,
-               c.name as company_name, r.title as job_title,
-               r.description as job_description,
-               r.start_date as start_date, r.end_date as end_date
+        RETURN 
+            p.person_id as person_id,
+            p.name as person_name, 
+            p.headline as headline,
+            p.summary as summary,
+            c.name as company_name, 
+            r.role as job_title,
+            r.description as job_description,
+            r.start_date as start_date, 
+            r.end_date as end_date,
+            r.is_current as is_current,
+            p.current_location as location
         ORDER BY r.start_date DESC
         """
         return self.db.execute_query(query)
@@ -284,6 +571,7 @@ class QueryManager:
         """
         Find people with leadership indicators in their job descriptions.
         Looks for management, team lead, and leadership-related keywords.
+        Returns person_id and job details showing leadership experience.
         """
         leadership_keywords = [
             "led team", "managed team", "team lead", "people manager", "director",
@@ -296,65 +584,27 @@ class QueryManager:
         where_clause = " OR ".join(conditions)
         
         query = f"""
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
+        MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE r.description IS NOT NULL AND ({where_clause})
-        RETURN p.name as person_name, p.headline as headline,
-               c.name as company_name, r.title as job_title,
-               r.description as job_description,
-               r.duration_months as duration_months
+        RETURN 
+            p.person_id as person_id,
+            p.name as person_name, 
+            p.headline as headline,
+            p.summary as summary,
+            c.name as company_name, 
+            r.role as job_title,
+            r.description as job_description,
+            r.duration_months as duration_months,
+            r.is_current as is_current,
+            p.current_location as location
         ORDER BY r.duration_months DESC
         """
         return self.db.execute_query(query)
     
-    def find_achievement_patterns(self):
-        """
-        Find people with quantifiable achievements in their job descriptions.
-        Looks for metrics, improvements, and measurable impact.
-        """
-        achievement_keywords = [
-            "increased", "improved", "reduced", "optimized", "enhanced", "delivered",
-            "achieved", "exceeded", "saved", "generated", "grew", "scaled",
-            "%", "percent", "million", "billion", "k ", "x ", "times",
-            "faster", "efficiency", "performance", "revenue", "cost"
-        ]
-        
-        conditions = [f"toLower(r.description) CONTAINS '{keyword}'" for keyword in achievement_keywords]
-        where_clause = " OR ".join(conditions)
-        
-        query = f"""
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
-        WHERE r.description IS NOT NULL AND ({where_clause})
-        RETURN p.name as person_name, p.headline as headline,
-               c.name as company_name, r.title as job_title,
-               r.description as job_description,
-               r.start_date as start_date, r.end_date as end_date
-        ORDER BY p.name
-        """
-        return self.db.execute_query(query)
-    
-    def analyze_career_progression(self, person_name):
-        """
-        Analyze a person's career progression by examining job titles and descriptions over time.
-        Shows how their roles, responsibilities, and seniority evolved.
-        """
-        query = """
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
-        WHERE toLower(p.name) CONTAINS toLower($person_name)
-        RETURN p.name as person_name,
-               c.name as company_name,
-               r.title as job_title,
-               r.description as job_description,
-               r.start_date as start_date,
-               r.end_date as end_date,
-               r.duration_months as duration_months,
-               r.location as job_location
-        ORDER BY r.start_date ASC
-        """
-        return self.db.execute_query(query, params={"person_name": person_name})
-    
     def find_domain_experts(self, domain_keywords):
         """
         Find people with deep domain expertise based on job description analysis.
+        Returns person_id and expertise indicators.
         
         Args:
             domain_keywords: List of domain-specific terms (e.g., ["fintech", "healthcare", "e-commerce"])
@@ -363,83 +613,23 @@ class QueryManager:
         where_clause = " OR ".join(conditions)
         
         query = f"""
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
+        MATCH (p:Person)-[r:CURRENTLY_WORKS_AT|PREVIOUSLY_WORKED_AT]->(c:Company)
         WHERE r.description IS NOT NULL AND ({where_clause})
         WITH p, count(r) as domain_jobs, collect(DISTINCT c.name) as companies,
-             collect(DISTINCT r.title) as roles
+             collect(DISTINCT r.role) as roles
         WHERE domain_jobs >= 2  // At least 2 jobs in the domain
-        RETURN p.name as person_name, p.headline as headline,
-               domain_jobs, companies, roles,
-               p.total_experience_months as total_experience
+        RETURN 
+            p.person_id as person_id,
+            p.name as person_name, 
+            p.headline as headline,
+            p.summary as summary,
+            domain_jobs, 
+            companies, 
+            roles,
+            p.total_experience_months as total_experience,
+            p.current_location as location,
+            p.email as email
         ORDER BY domain_jobs DESC, p.total_experience_months DESC
         """
         return self.db.execute_query(query)
     
-    def find_similar_career_paths(self, reference_person_name, similarity_threshold=2):
-        """
-        Find people with similar career paths to a reference person.
-        Compares job titles, companies, and progression patterns.
-        
-        Args:
-            reference_person_name: The person to compare against
-            similarity_threshold: Minimum number of similar elements (companies/roles)
-        """
-        query = """
-        // Get reference person's career data
-        MATCH (ref:Person)-[ref_r:WORKS_AT]->(ref_c:Company)
-        WHERE toLower(ref.name) CONTAINS toLower($reference_name)
-        WITH ref, collect(DISTINCT ref_c.name) as ref_companies, 
-             collect(DISTINCT toLower(ref_r.title)) as ref_titles
-        
-        // Find people with overlapping companies or similar titles
-        MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
-        WHERE p <> ref
-        WITH ref, ref_companies, ref_titles, p,
-             collect(DISTINCT c.name) as person_companies,
-             collect(DISTINCT toLower(r.title)) as person_titles
-        
-        // Calculate similarity
-        WITH ref, p, ref_companies, ref_titles, person_companies, person_titles,
-             [x IN ref_companies WHERE x IN person_companies] as common_companies,
-             [x IN ref_titles WHERE x IN person_titles] as common_titles
-        
-        WHERE size(common_companies) + size(common_titles) >= $threshold
-        
-        RETURN p.name as similar_person, p.headline as headline,
-               common_companies, common_titles,
-               size(common_companies) + size(common_titles) as similarity_score
-        ORDER BY similarity_score DESC
-        """
-        return self.db.execute_query(query, params={
-            "reference_name": reference_person_name,
-            "threshold": similarity_threshold
-        })
-    
-    def find_role_transition_patterns(self, from_role_keywords, to_role_keywords):
-        """
-        Find people who transitioned from one type of role to another.
-        Useful for understanding career pivot patterns.
-        
-        Args:
-            from_role_keywords: Keywords for the starting role type
-            to_role_keywords: Keywords for the target role type
-        """
-        from_conditions = [f"toLower(r1.title) CONTAINS '{keyword}'" for keyword in from_role_keywords]
-        to_conditions = [f"toLower(r2.title) CONTAINS '{keyword}'" for keyword in to_role_keywords] 
-        
-        from_clause = " OR ".join(from_conditions)
-        to_clause = " OR ".join(to_conditions)
-        
-        query = f"""
-        MATCH (p:Person)-[r1:WORKS_AT]->(c1:Company)
-        MATCH (p)-[r2:WORKS_AT]->(c2:Company)
-        WHERE r1.start_date < r2.start_date
-          AND ({from_clause})
-          AND ({to_clause})
-        RETURN p.name as person_name, p.headline as headline,
-               c1.name as from_company, r1.title as from_role, r1.start_date as from_start,
-               c2.name as to_company, r2.title as to_role, r2.start_date as to_start,
-               r1.description as from_description, r2.description as to_description
-        ORDER BY r2.start_date DESC
-        """
-        return self.db.execute_query(query)

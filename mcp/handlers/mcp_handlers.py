@@ -14,10 +14,11 @@ from mcp.services.bridge_service import bridge_service
 logger = logging.getLogger(__name__)
 
 class MCPHandler:
-    """Handles MCP protocol requests and routes them to appropriate handlers"""
+    """Handles MCP protocol requests and routes them to appropriate handlers - 19 tools"""
     
     def __init__(self):
         self.tool_handlers = {
+            "get_person_complete_profile": self._handle_get_person_complete_profile,
             "find_person_by_name": self._handle_find_person_by_name,
             "find_people_by_skill": self._handle_find_people_by_skill,
             "find_people_by_company": self._handle_find_people_by_company,
@@ -29,18 +30,12 @@ class MCPHandler:
             "get_person_colleagues": self._handle_get_person_colleagues,
             "find_people_by_experience_level": self._handle_find_people_by_experience_level,
             "get_company_employees": self._handle_get_company_employees,
-            "get_skill_popularity": self._handle_get_skill_popularity,
             "get_person_details": self._handle_get_person_details,
             "get_person_job_descriptions": self._handle_get_person_job_descriptions,
             "search_job_descriptions_by_keywords": self._handle_search_job_descriptions_by_keywords,
             "find_technical_skills_in_descriptions": self._handle_find_technical_skills_in_descriptions,
             "find_leadership_indicators": self._handle_find_leadership_indicators,
-            "find_achievement_patterns": self._handle_find_achievement_patterns,
-            "analyze_career_progression": self._handle_analyze_career_progression,
             "find_domain_experts": self._handle_find_domain_experts,
-            "find_similar_career_paths": self._handle_find_similar_career_paths,
-            "find_role_transition_patterns": self._handle_find_role_transition_patterns,
-            "natural_language_search": self._handle_natural_language_search,
             "health_check": self._handle_health_check
         }
     
@@ -52,26 +47,29 @@ class MCPHandler:
             request: The MCP request to handle
             
         Returns:
-            MCPResponse with the result or error
+            MCPResponse: The response to send back to the client
         """
         try:
-            if request.method == "tools/list":
+            method = request.method
+            
+            if method == "tools/list":
                 return await self._handle_list_tools(request)
-            elif request.method == "tools/call":
+            elif method == "tools/call":
                 return await self._handle_call_tool(request)
             else:
+                logger.warning(f"Unknown method: {method}")
                 return create_error_response(
-                    request.id,
-                    MCPErrorCodes.METHOD_NOT_FOUND,
-                    f"Method '{request.method}' not found"
+                    request_id=request.id,
+                    code=MCPErrorCodes.METHOD_NOT_FOUND,
+                    message=f"Unknown method: {method}"
                 )
                 
         except Exception as e:
-            logger.error(f"Error handling MCP request: {e}")
+            logger.error(f"Error handling request: {e}", exc_info=True)
             return create_error_response(
-                request.id,
-                MCPErrorCodes.INTERNAL_ERROR,
-                f"Internal server error: {str(e)}"
+                request_id=request.id,
+                code=MCPErrorCodes.INTERNAL_ERROR,
+                message=f"Internal error: {str(e)}"
             )
     
     async def _handle_list_tools(self, request: MCPRequest) -> MCPResponse:
@@ -87,606 +85,329 @@ class MCPHandler:
             ]
             
             return create_success_response(
-                request.id,
-                {"tools": [tool.dict() for tool in tools]}
+                request_id=request.id,
+                result={"tools": [tool.dict() for tool in tools]}
             )
             
         except Exception as e:
             logger.error(f"Error listing tools: {e}")
             return create_error_response(
-                request.id,
-                MCPErrorCodes.INTERNAL_ERROR,
-                f"Failed to list tools: {str(e)}"
+                request_id=request.id,
+                code=MCPErrorCodes.INTERNAL_ERROR,
+                message=str(e)
             )
     
     async def _handle_call_tool(self, request: MCPRequest) -> MCPResponse:
         """Handle tools/call request"""
         try:
-            if not request.params:
-                return create_error_response(
-                    request.id,
-                    MCPErrorCodes.INVALID_PARAMS,
-                    "Missing parameters for tool call"
-                )
-            
-            tool_name = request.params.get("name")
-            tool_arguments = request.params.get("arguments", {})
+            params = request.params or {}
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
             
             if not tool_name:
                 return create_error_response(
-                    request.id,
-                    MCPErrorCodes.INVALID_PARAMS,
-                    "Missing 'name' parameter"
+                    request_id=request.id,
+                    code=MCPErrorCodes.INVALID_PARAMS,
+                    message="Missing tool name"
                 )
             
+            # Check if tool exists
             if tool_name not in self.tool_handlers:
                 return create_error_response(
-                    request.id,
-                    MCPErrorCodes.TOOL_NOT_FOUND,
-                    f"Tool '{tool_name}' not found"
+                    request_id=request.id,
+                    code=MCPErrorCodes.METHOD_NOT_FOUND,
+                    message=f"Unknown tool: {tool_name}"
                 )
             
-            # Validate input using comprehensive validator
-            validation_error = InputValidator.validate_tool_input(tool_name, tool_arguments)
-            if validation_error:
+            # Validate input
+            try:
+                InputValidator.validate_tool_input(tool_name, arguments)
+            except ValueError as e:
                 return create_error_response(
-                    request.id,
-                    validation_error["code"],
-                    validation_error["message"],
-                    validation_error.get("data")
+                    request_id=request.id,
+                    code=MCPErrorCodes.INVALID_PARAMS,
+                    message=f"Invalid arguments: {str(e)}"
                 )
             
-            # Check cache first
-            cached_result = await cache_manager.get_cached_result(tool_name, tool_arguments)
+            # Check cache
+            cached_result = await cache_manager.get_cached_result(tool_name, arguments)
+            
             if cached_result is not None:
-                logger.info(f"Cache hit for tool: {tool_name}")
-                return create_tool_call_response(request.id, cached_result)
-            
-            # Execute tool with enhanced error handling  
-            handler = self.tool_handlers[tool_name]
-            result = await self._execute_tool_with_error_handling(tool_name, handler, tool_arguments)
-            
-            # Cache successful results
-            if not (isinstance(result, dict) and "error" in result):
-                await cache_manager.cache_result(tool_name, tool_arguments, result)
-                logger.debug(f"Cached result for tool: {tool_name}")
-            
-            if isinstance(result, dict) and "error" in result:
-                return create_error_response(
-                    request.id,
-                    result["error"]["code"],
-                    result["error"]["message"],
-                    result["error"].get("data")
+                logger.info(f"Cache hit for {tool_name}")
+                return create_tool_call_response(
+                    request_id=request.id,
+                    content=[{
+                        "type": "text",
+                        "text": str(cached_result)
+                    }]
                 )
             
-            return create_tool_call_response(request.id, result)
+            # Execute tool
+            handler = self.tool_handlers[tool_name]
+            result = await handler(arguments)
+            
+            # Cache result
+            await cache_manager.cache_result(tool_name, arguments, result)
+            
+            # Return response
+            return create_tool_call_response(
+                request_id=request.id,
+                content=[{
+                    "type": "text",
+                    "text": str(result)
+                }]
+            )
             
         except Exception as e:
-            logger.error(f"Tool call failed for {tool_name}: {str(e)}", exc_info=True)
+            logger.error(f"Error calling tool: {e}", exc_info=True)
             return create_error_response(
-                request.id,
-                MCPErrorCodes.INTERNAL_ERROR,
-                f"Tool execution failed: {str(e)}"
+                request_id=request.id,
+                code=MCPErrorCodes.INTERNAL_ERROR,
+                message=str(e)
             )
     
-    async def _execute_tool_with_error_handling(
-        self, 
-        tool_name: str, 
-        handler, 
-        arguments: Dict[str, Any]
-    ) -> Any:
-        """Execute a tool handler with comprehensive error handling"""
-        try:
-            logger.info(f"Executing tool: {tool_name} with arguments: {arguments}")
-            result = await handler(arguments)
-            logger.info(f"Tool {tool_name} executed successfully")
-            return result
-            
-        except KeyError as e:
-            logger.error(f"Missing key in {tool_name}: {str(e)}")
-            return {
-                "error": {
-                    "code": MCPErrorCodes.INVALID_PARAMS,
-                    "message": f"Missing required parameter: {str(e)}",
-                    "data": {"tool_name": tool_name, "missing_key": str(e)}
-                }
-            }
-        except ValueError as e:
-            logger.error(f"Invalid value in {tool_name}: {str(e)}")
-            return {
-                "error": {
-                    "code": MCPErrorCodes.INVALID_PARAMS,
-                    "message": f"Invalid parameter value: {str(e)}",
-                    "data": {"tool_name": tool_name}
-                }
-            }
-        except ConnectionError as e:
-            logger.error(f"Database connection error in {tool_name}: {str(e)}")
-            return {
-                "error": {
-                    "code": MCPErrorCodes.INTERNAL_ERROR,
-                    "message": "Database connection failed",
-                    "data": {"tool_name": tool_name, "category": "database_error"}
-                }
-            }
-        except Exception as e:
-            logger.error(f"Unexpected error in {tool_name}: {str(e)}", exc_info=True)
-            return {
-                "error": {
-                    "code": MCPErrorCodes.INTERNAL_ERROR,
-                    "message": f"Tool execution failed: {str(e)}",
-                    "data": {"tool_name": tool_name, "error_type": type(e).__name__}
-                }
-            }
+    # ============================================================================
+    # Tool Handler Methods - 19 handlers matching tool_schemas.py
+    # ============================================================================
     
-    # Tool handler methods
-    async def _handle_find_person_by_name(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_person_by_name tool"""
-        name = arguments["name"]
-        results = await bridge_service.find_person_by_name(name)
+    async def _handle_get_person_complete_profile(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Get complete profile for a person including ALL properties"""
+        person_id = arguments.get("person_id")
+        person_name = arguments.get("person_name")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} people matching '{name}':" + 
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']})" 
-                       for person in results
-                   ]) if results else f"No people found matching '{name}'"
-        }]
+        if not person_id and not person_name:
+            raise ValueError("Must provide either person_id or person_name")
+        
+        result = await bridge_service.get_person_complete_profile(
+            person_id=person_id,
+            person_name=person_name
+        )
+        
+        logger.info(f"Retrieved complete profile: {len(result)} records")
+        return result
+    
+    async def _handle_find_person_by_name(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find a person by name"""
+        name = arguments.get("name")
+        
+        if not name:
+            raise ValueError("Name is required")
+        
+        result = await bridge_service.find_person_by_name(name)
+        
+        logger.info(f"Found {len(result)} people matching name: {name}")
+        return result
     
     async def _handle_find_people_by_skill(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_people_by_skill tool"""
-        skill = arguments["skill"]
-        results = await bridge_service.find_people_by_skill(skill)
+        """Find people by skill"""
+        skill = arguments.get("skill")
         
-        return [{
-            "type": "text", 
-            "text": f"Found {len(results)} people with '{skill}' skills:" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']})"
-                       for person in results
-                   ]) if results else f"No people found with '{skill}' skills"
-        }]
+        if not skill:
+            raise ValueError("Skill is required")
+        
+        result = await bridge_service.find_people_by_skill(skill)
+        
+        logger.info(f"Found {len(result)} people with skill: {skill}")
+        return result
     
     async def _handle_find_people_by_company(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_people_by_company tool"""
-        company_name = arguments["company_name"]
-        results = await bridge_service.find_people_by_company(company_name)
+        """Find people by company"""
+        company_name = arguments.get("company_name")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} people who worked at '{company_name}':" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']})"
-                       for person in results  
-                   ]) if results else f"No people found who worked at '{company_name}'"
-        }]
+        if not company_name:
+            raise ValueError("Company name is required")
+        
+        result = await bridge_service.find_people_by_company(company_name)
+        
+        logger.info(f"Found {len(result)} people at company: {company_name}")
+        return result
     
     async def _handle_find_colleagues_at_company(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_colleagues_at_company tool"""
-        person_id = arguments["person_id"]
-        company_name = arguments["company_name"]
-        results = await bridge_service.find_colleagues_at_company(person_id, company_name)
+        """Find colleagues at a specific company"""
+        person_id = arguments.get("person_id")
+        company_name = arguments.get("company_name")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} colleagues of person ID {person_id} at '{company_name}':" +
-                   "\n" + "\n".join([
-                       f"- {colleague['colleague_name']} ({colleague['colleague_headline']})"
-                       for colleague in results
-                   ]) if results else f"No colleagues found for person ID {person_id} at '{company_name}'"
-        }]
-    
-    async def _handle_natural_language_search(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle natural_language_search tool"""
-        question = arguments["question"]
-        result = await bridge_service.natural_language_search(question)
+        if not person_id or not company_name:
+            raise ValueError("Both person_id and company_name are required")
         
-        return [{
-            "type": "text",
-            "text": result
-        }]
+        result = await bridge_service.find_colleagues_at_company(person_id, company_name)
+        
+        logger.info(f"Found {len(result)} colleagues at {company_name}")
+        return result
     
     async def _handle_find_people_by_institution(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_people_by_institution tool"""
-        institution_name = arguments["institution_name"]
-        results = await bridge_service.find_people_by_institution(institution_name)
+        """Find people by institution"""
+        institution_name = arguments.get("institution_name")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} people who studied at '{institution_name}':" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']})"
-                       for person in results
-                   ]) if results else f"No people found who studied at '{institution_name}'"
-        }]
+        if not institution_name:
+            raise ValueError("Institution name is required")
+        
+        result = await bridge_service.find_people_by_institution(institution_name)
+        
+        logger.info(f"Found {len(result)} people from institution: {institution_name}")
+        return result
     
     async def _handle_find_people_by_location(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_people_by_location tool"""
-        location = arguments["location"]
-        results = await bridge_service.find_people_by_location(location)
+        """Find people by location"""
+        location = arguments.get("location")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} people in '{location}':" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']}) - {person.get('location', 'N/A')}"
-                       for person in results
-                   ]) if results else f"No people found in '{location}'"
-        }]
+        if not location:
+            raise ValueError("Location is required")
+        
+        result = await bridge_service.find_people_by_location(location)
+        
+        logger.info(f"Found {len(result)} people in location: {location}")
+        return result
     
     async def _handle_get_person_skills(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle get_person_skills tool"""
-        person_name = arguments["person_name"]
-        results = await bridge_service.get_person_skills(person_name)
+        """Get all skills for a person"""
+        person_id = arguments.get("person_id")
+        person_name = arguments.get("person_name")
         
-        if results:
-            person = results[0]
-            skills = person.get('skills', [])
-            return [{
-                "type": "text",
-                "text": f"Skills for {person['person_name']}:\n" +
-                       "\n".join([f"- {skill}" for skill in skills]) if skills else f"No skills found for {person['person_name']}"
-            }]
-        else:
-            return [{
-                "type": "text",
-                "text": f"Person '{person_name}' not found"
-            }]
+        if not person_id and not person_name:
+            raise ValueError("Must provide either person_id or person_name")
+        
+        result = await bridge_service.get_person_skills(
+            person_id=person_id,
+            person_name=person_name
+        )
+        
+        logger.info(f"Retrieved skills for person")
+        return result
     
     async def _handle_find_people_with_multiple_skills(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_people_with_multiple_skills tool"""
-        skills_list = arguments["skills_list"]
+        """Find people with multiple skills"""
+        skills_list = arguments.get("skills_list", [])
         match_type = arguments.get("match_type", "any")
-        results = await bridge_service.find_people_with_multiple_skills(skills_list, match_type)
         
-        skills_text = "', '".join(skills_list)
-        match_text = "all" if match_type == "all" else "any"
+        if not skills_list:
+            raise ValueError("Skills list is required")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} people with {match_text} of these skills: '{skills_text}':" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']})"
-                       for person in results
-                   ]) if results else f"No people found with {match_text} of these skills: '{skills_text}'"
-        }]
+        result = await bridge_service.find_people_with_multiple_skills(skills_list, match_type)
+        
+        logger.info(f"Found {len(result)} people with skills: {skills_list}")
+        return result
     
     async def _handle_get_person_colleagues(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle get_person_colleagues tool""" 
-        person_name = arguments["person_name"]
-        results = await bridge_service.get_person_colleagues(person_name)
+        """Get all colleagues of a person"""
+        person_id = arguments.get("person_id")
+        person_name = arguments.get("person_name")
         
-        if results:
-            # Group by company
-            by_company = {}
-            for colleague in results:
-                company = colleague['company_name']
-                if company not in by_company:
-                    by_company[company] = []
-                by_company[company].append(f"{colleague['colleague_name']} ({colleague['colleague_headline']})")
-            
-            text_parts = [f"Colleagues of '{person_name}':"]
-            for company, colleagues in by_company.items():
-                text_parts.append(f"\nAt {company}:")
-                for colleague in colleagues:
-                    text_parts.append(f"  - {colleague}")
-            
-            return [{
-                "type": "text",
-                "text": "\n".join(text_parts)
-            }]
-        else:
-            return [{
-                "type": "text", 
-                "text": f"No colleagues found for '{person_name}'"
-            }]
+        if not person_id and not person_name:
+            raise ValueError("Must provide either person_id or person_name")
+        
+        result = await bridge_service.get_person_colleagues(
+            person_id=person_id,
+            person_name=person_name
+        )
+        
+        logger.info(f"Retrieved {len(result)} colleagues")
+        return result
     
     async def _handle_find_people_by_experience_level(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_people_by_experience_level tool"""
+        """Find people by experience level"""
         min_months = arguments.get("min_months")
         max_months = arguments.get("max_months")
-        results = await bridge_service.find_people_by_experience_level(min_months, max_months)
         
-        # Build description
-        desc_parts = []
-        if min_months is not None:
-            desc_parts.append(f"at least {min_months} months")
-        if max_months is not None:
-            desc_parts.append(f"at most {max_months} months")
+        result = await bridge_service.find_people_by_experience_level(min_months, max_months)
         
-        experience_desc = " and ".join(desc_parts) if desc_parts else "any amount"
-        
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} people with {experience_desc} of experience:" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']}) - {person.get('experience_months', 'N/A')} months"
-                       for person in results
-                   ]) if results else f"No people found with {experience_desc} of experience"
-        }]
+        logger.info(f"Found {len(result)} people with experience level")
+        return result
     
     async def _handle_get_company_employees(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle get_company_employees tool"""
-        company_name = arguments["company_name"]
-        results = await bridge_service.get_company_employees(company_name)
+        """Get all employees of a company"""
+        company_name = arguments.get("company_name")
         
-        return [{
-            "type": "text",
-            "text": f"Found {len(results)} employees at '{company_name}':" +
-                   "\n" + "\n".join([
-                       f"- {person['name']} ({person['headline']})"
-                       for person in results
-                   ]) if results else f"No employees found at '{company_name}'"
-        }]
-    
-    async def _handle_get_skill_popularity(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle get_skill_popularity tool"""
-        limit = arguments.get("limit", 20)
-        results = await bridge_service.get_skill_popularity(limit)
+        if not company_name:
+            raise ValueError("Company name is required")
         
-        return [{
-            "type": "text",
-            "text": f"Top {len(results)} most popular skills:" +
-                   "\n" + "\n".join([
-                       f"{i+1}. {skill['skill_name']} ({skill['person_count']} people)"
-                       for i, skill in enumerate(results)
-                   ]) if results else "No skill data found"
-        }]
+        result = await bridge_service.get_company_employees(company_name)
+        
+        logger.info(f"Found {len(result)} employees at {company_name}")
+        return result
     
     async def _handle_get_person_details(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle get_person_details tool"""
-        person_name = arguments["person_name"]
-        results = await bridge_service.get_person_details(person_name)
+        """Get comprehensive person details"""
+        person_id = arguments.get("person_id")
+        person_name = arguments.get("person_name")
         
-        if results:
-            person = results[0]
-            details = [f"Details for {person['name']}:"]
-            details.append(f"Headline: {person.get('headline', 'N/A')}")
-            details.append(f"Location: {person.get('location', 'N/A')}")
-            details.append(f"Experience: {person.get('experience_months', 'N/A')} months")
-            
-            if person.get('skills'):
-                skills = [skill for skill in person['skills'] if skill]
-                if skills:
-                    details.append(f"Skills: {', '.join(skills)}")
-            
-            if person.get('companies'):
-                companies = [company for company in person['companies'] if company]
-                if companies:
-                    details.append(f"Companies: {', '.join(companies)}")
-            
-            if person.get('institutions'):
-                institutions = [inst for inst in person['institutions'] if inst]
-                if institutions:
-                    details.append(f"Education: {', '.join(institutions)}")
-            
-            return [{
-                "type": "text",
-                "text": "\n".join(details)
-            }]
-        else:
-            return [{
-                "type": "text",
-                "text": f"Person '{person_name}' not found"
-            }]
-
+        if not person_id and not person_name:
+            raise ValueError("Must provide either person_id or person_name")
+        
+        result = await bridge_service.get_person_details(
+            person_id=person_id,
+            person_name=person_name
+        )
+        
+        logger.info(f"Retrieved person details")
+        return result
+    
     async def _handle_get_person_job_descriptions(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle get_person_job_descriptions tool"""
-        person_name = arguments["person_name"]
-        results = await bridge_service.get_person_job_descriptions(person_name)
+        """Get all job descriptions for a person"""
+        person_id = arguments.get("person_id")
+        person_name = arguments.get("person_name")
         
-        if results:
-            details = [f"Job descriptions for {results[0]['person_name']}:"]
-            details.append("")
-            
-            for job in results:
-                details.append(f"Company: {job['company_name']}")
-                details.append(f"Title: {job['job_title']}")
-                if job.get('start_date') and job.get('end_date'):
-                    details.append(f"Period: {job['start_date']} to {job['end_date']}")
-                elif job.get('start_date'):
-                    details.append(f"Start Date: {job['start_date']}")
-                if job.get('duration_months'):
-                    details.append(f"Duration: {job['duration_months']} months")
-                if job.get('job_location'):
-                    details.append(f"Location: {job['job_location']}")
-                if job.get('job_description'):
-                    details.append(f"Description: {job['job_description']}")
-                details.append("-" * 50)
-            
-            return [{
-                "type": "text",
-                "text": "\n".join(details)
-            }]
-        else:
-            return [{
-                "type": "text", 
-                "text": f"No job descriptions found for '{person_name}'"
-            }]
-
+        if not person_id and not person_name:
+            raise ValueError("Must provide either person_id or person_name")
+        
+        result = await bridge_service.get_person_job_descriptions(
+            person_id=person_id,
+            person_name=person_name
+        )
+        
+        logger.info(f"Retrieved {len(result)} job descriptions")
+        return result
+    
     async def _handle_search_job_descriptions_by_keywords(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle search_job_descriptions_by_keywords tool"""
-        keywords = arguments["keywords"]
+        """Search job descriptions by keywords"""
+        keywords = arguments.get("keywords", [])
         match_type = arguments.get("match_type", "any")
-        results = await bridge_service.search_job_descriptions_by_keywords(keywords, match_type)
         
-        if results:
-            details = [f"Found {len(results)} people matching keywords {keywords} ({match_type} match):"]
-            details.append("")
-            
-            for person in results:
-                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
-                details.append(f"  Company: {person['company_name']}")
-                details.append(f"  Role: {person['job_title']}")
-                if person.get('job_description'):
-                    desc = person['job_description'][:200] + "..." if len(person['job_description']) > 200 else person['job_description']
-                    details.append(f"  Description: {desc}")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": f"No people found with keywords: {', '.join(keywords)}"}]
-
+        if not keywords:
+            raise ValueError("Keywords list is required")
+        
+        result = await bridge_service.search_job_descriptions_by_keywords(keywords, match_type)
+        
+        logger.info(f"Found {len(result)} people matching keywords: {keywords}")
+        return result
+    
     async def _handle_find_technical_skills_in_descriptions(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_technical_skills_in_descriptions tool"""
-        tech_keywords = arguments["tech_keywords"]
-        results = await bridge_service.find_technical_skills_in_descriptions(tech_keywords)
+        """Find technical skills in job descriptions"""
+        tech_keywords = arguments.get("tech_keywords", [])
         
-        if results:
-            details = [f"Found {len(results)} people with technical skills {tech_keywords} in job descriptions:"]
-            details.append("")
-            
-            for person in results:
-                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
-                details.append(f"  Company: {person['company_name']} | Role: {person['job_title']}")
-                if person.get('start_date') and person.get('end_date'):
-                    details.append(f"  Period: {person['start_date']} to {person['end_date']}")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": f"No people found with technical skills: {', '.join(tech_keywords)}"}]
-
+        if not tech_keywords:
+            raise ValueError("Tech keywords list is required")
+        
+        result = await bridge_service.find_technical_skills_in_descriptions(tech_keywords)
+        
+        logger.info(f"Found {len(result)} people with tech skills: {tech_keywords}")
+        return result
+    
     async def _handle_find_leadership_indicators(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_leadership_indicators tool"""
-        results = await bridge_service.find_leadership_indicators()
+        """Find people with leadership indicators"""
+        result = await bridge_service.find_leadership_indicators()
         
-        if results:
-            details = [f"Found {len(results)} people with leadership indicators:"]
-            details.append("")
-            
-            for person in results[:20]:  # Limit to top 20
-                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
-                details.append(f"  Company: {person['company_name']} | Role: {person['job_title']}")
-                if person.get('duration_months'):
-                    details.append(f"  Duration: {person['duration_months']} months")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": "No people found with leadership indicators"}]
-
-    async def _handle_find_achievement_patterns(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_achievement_patterns tool"""
-        results = await bridge_service.find_achievement_patterns()
-        
-        if results:
-            details = [f"Found {len(results)} people with quantifiable achievements:"]
-            details.append("")
-            
-            for person in results[:20]:  # Limit to top 20
-                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
-                details.append(f"  Company: {person['company_name']} | Role: {person['job_title']}")
-                if person.get('start_date') and person.get('end_date'):
-                    details.append(f"  Period: {person['start_date']} to {person['end_date']}")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": "No people found with achievement patterns"}]
-
-    async def _handle_analyze_career_progression(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle analyze_career_progression tool"""
-        person_name = arguments["person_name"]
-        results = await bridge_service.analyze_career_progression(person_name)
-        
-        if results:
-            details = [f"Career progression for {results[0]['person_name']}:"]
-            details.append("")
-            
-            for i, job in enumerate(results, 1):
-                details.append(f"{i}. {job['company_name']} - {job['job_title']}")
-                if job.get('start_date') and job.get('end_date'):
-                    details.append(f"   Period: {job['start_date']} to {job['end_date']}")
-                elif job.get('start_date'):
-                    details.append(f"   Start: {job['start_date']}")
-                if job.get('duration_months'):
-                    details.append(f"   Duration: {job['duration_months']} months")
-                if job.get('job_location'):
-                    details.append(f"   Location: {job['job_location']}")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": f"No career progression found for '{person_name}'"}]
-
+        logger.info(f"Found {len(result)} people with leadership indicators")
+        return result
+    
     async def _handle_find_domain_experts(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_domain_experts tool"""
-        domain_keywords = arguments["domain_keywords"]
-        results = await bridge_service.find_domain_experts(domain_keywords)
+        """Find domain experts"""
+        domain_keywords = arguments.get("domain_keywords", [])
         
-        if results:
-            details = [f"Found {len(results)} domain experts for {domain_keywords}:"]
-            details.append("")
-            
-            for person in results:
-                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
-                details.append(f"  Domain Jobs: {person['domain_jobs']} | Total Experience: {person.get('total_experience', 'N/A')} months")
-                if person.get('companies'):
-                    companies = person['companies'][:5]  # Show first 5 companies
-                    details.append(f"  Companies: {', '.join(companies)}")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": f"No domain experts found for: {', '.join(domain_keywords)}"}]
-
-    async def _handle_find_similar_career_paths(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_similar_career_paths tool"""
-        reference_person_name = arguments["reference_person_name"]
-        similarity_threshold = arguments.get("similarity_threshold", 2)
-        results = await bridge_service.find_similar_career_paths(reference_person_name, similarity_threshold)
+        if not domain_keywords:
+            raise ValueError("Domain keywords list is required")
         
-        if results:
-            details = [f"Found {len(results)} people with similar career paths to {reference_person_name}:"]
-            details.append("")
-            
-            for person in results:
-                details.append(f"- {person['similar_person']} ({person.get('headline', 'N/A')})")
-                details.append(f"  Similarity Score: {person['similarity_score']}")
-                if person.get('common_companies'):
-                    details.append(f"  Common Companies: {', '.join(person['common_companies'])}")
-                if person.get('common_titles'):
-                    details.append(f"  Common Roles: {', '.join(person['common_titles'])}")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": f"No similar career paths found for '{reference_person_name}'"}]
-
-    async def _handle_find_role_transition_patterns(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle find_role_transition_patterns tool"""
-        from_role_keywords = arguments["from_role_keywords"]
-        to_role_keywords = arguments["to_role_keywords"]
-        results = await bridge_service.find_role_transition_patterns(from_role_keywords, to_role_keywords)
+        result = await bridge_service.find_domain_experts(domain_keywords)
         
-        if results:
-            details = [f"Found {len(results)} people who transitioned from {from_role_keywords} to {to_role_keywords}:"]
-            details.append("")
-            
-            for person in results:
-                details.append(f"- {person['person_name']} ({person.get('headline', 'N/A')})")
-                details.append(f"  FROM: {person['from_role']} at {person['from_company']} ({person.get('from_start', 'N/A')})")
-                details.append(f"  TO: {person['to_role']} at {person['to_company']} ({person.get('to_start', 'N/A')})")
-                details.append("")
-            
-            return [{"type": "text", "text": "\n".join(details)}]
-        else:
-            return [{"type": "text", "text": f"No role transitions found from {from_role_keywords} to {to_role_keywords}"}]
-
-    async def _handle_health_check(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Handle health_check tool"""
-        health_status = await bridge_service.health_check()
+        logger.info(f"Found {len(result)} domain experts in: {domain_keywords}")
+        return result
+    
+    async def _handle_health_check(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Perform health check"""
+        result = await bridge_service.health_check()
         
-        return [{
-            "type": "text",
-            "text": f"Health Status: {health_status['status']}\n" +
-                   f"Database Connected: {health_status.get('database_connected', False)}\n" +
-                   f"Node Count: {health_status.get('node_count', 'Unknown')}\n" +
-                   f"Query Manager Ready: {health_status.get('query_manager_ready', False)}\n" +
-                   f"NL Search Ready: {health_status.get('nl_search_ready', False)}"
-        }]
+        logger.info(f"Health check status: {result.get('status')}")
+        return result
 
 # Global handler instance
 mcp_handler = MCPHandler()

@@ -36,6 +36,10 @@ passlib[bcrypt]
 # Utilities
 aiofiles
 
+# Testing
+pytest
+pytest-asyncio
+
 # Additional dependencies for production deployment
 gunicorn
 python-json-logger
