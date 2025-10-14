@@ -2,99 +2,195 @@
 """
 Connect Agent Main Runner
 
-Main entry point for the simplified Connect Agent system.
+Main entry point for the Enhanced Connect Agent system.
 Provides both CLI and programmatic interfaces for querying the people knowledge graph.
 """
 
 import asyncio
 import sys
 import time
-from typing import Dict, Any, List, Optional
+import json
+from typing import Dict, Any, List
 
-# Add parent directory to path for imports
+# Add parent directory to path
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from agent.workflow.graph_builder import WorkflowGraphBuilder
+from agent.state.types import AgentState
+
+
+def format_person_profile(person: Dict[str, Any], index: int = None) -> str:
+    """Format a person's profile for display."""
+    lines = []
+    
+    # Header with person number
+    if index is not None:
+        lines.append(f"\n{'='*80}")
+        lines.append(f"👤 PERSON #{index}")
+        lines.append(f"{'='*80}")
+    else:
+        lines.append(f"\n{'='*80}")
+    
+    # Basic Info
+    name = person.get('name', 'N/A')
+    person_id = person.get('person_id', 'N/A')
+    lines.append(f"📛 Name: {name}")
+    lines.append(f"🆔 ID: {person_id}")
+    
+    # Professional Info
+    headline = person.get('headline', 'N/A')
+    if headline and headline != 'N/A':
+        lines.append(f"💼 Headline: {headline}")
+    
+    current_company = person.get('current_company', 'N/A')
+    current_title = person.get('current_title', 'N/A')
+    if current_company and current_company != 'N/A':
+        lines.append(f"🏢 Current: {current_title} at {current_company}")
+    
+    # Experience
+    total_exp = person.get('total_experience_months')
+    if total_exp:
+        years = int(total_exp // 12)
+        months = int(total_exp % 12)
+        exp_str = f"{years} years" if months == 0 else f"{years} years {months} months"
+        lines.append(f"⏳ Experience: {exp_str}")
+    
+    # Summary
+    summary = person.get('summary', 'N/A')
+    if summary and summary != 'N/A' and len(summary) > 0:
+        # Truncate long summaries
+        if len(summary) > 200:
+            summary = summary[:200] + "..."
+        lines.append(f"📝 Summary: {summary}")
+    
+    # Technical Skills
+    tech_skills = person.get('technical_skills', [])
+    if tech_skills and len(tech_skills) > 0:
+        skills_str = ", ".join(tech_skills[:10])  # Show first 10 skills
+        if len(tech_skills) > 10:
+            skills_str += f" ... (+{len(tech_skills) - 10} more)"
+        lines.append(f"🔧 Tech Skills: {skills_str}")
+    
+    # Secondary Skills
+    secondary_skills = person.get('secondary_skills', [])
+    if secondary_skills and len(secondary_skills) > 0:
+        skills_str = ", ".join(secondary_skills[:5])  # Show first 5
+        if len(secondary_skills) > 5:
+            skills_str += f" ... (+{len(secondary_skills) - 5} more)"
+        lines.append(f"💡 Soft Skills: {skills_str}")
+    
+    # Domain Knowledge
+    domains = person.get('domain_knowledge', [])
+    if domains and len(domains) > 0:
+        domain_str = ", ".join(domains)
+        lines.append(f"🎯 Domains: {domain_str}")
+    
+    lines.append(f"{'='*80}\n")
+    
+    return "\n".join(lines)
+
+
+def format_response_with_profiles(response: str, accumulated_data: List[Dict[str, Any]]) -> str:
+    """Format response with person profiles extracted from accumulated_data."""
+    formatted_parts = []
+    
+    # Add the GPT-4o generated response first
+    formatted_parts.append("="*80)
+    formatted_parts.append("📊 QUERY RESULTS")
+    formatted_parts.append("="*80)
+    formatted_parts.append(response)
+    formatted_parts.append("")
+    
+    # Extract unique person profiles from accumulated_data
+    person_profiles = {}
+    
+    for data_item in accumulated_data:
+        # Check if this is a person profile (has person_id and name)
+        if isinstance(data_item, dict) and 'person_id' in data_item and 'name' in data_item:
+            person_id = data_item['person_id']
+            # Avoid duplicates
+            if person_id not in person_profiles:
+                person_profiles[person_id] = data_item
+    
+    # Display formatted profiles if any were found
+    if person_profiles:
+        formatted_parts.append("\n" + "="*80)
+        formatted_parts.append(f"👥 DETAILED PROFILES ({len(person_profiles)} people)")
+        formatted_parts.append("="*80)
+        
+        for idx, (person_id, profile) in enumerate(person_profiles.items(), 1):
+            formatted_parts.append(format_person_profile(profile, idx))
+    
+    return "\n".join(formatted_parts)
 
 
 class ConnectAgent:
-    """
-    Main Connect Agent using simplified LangGraph workflow.
-    
-    This is the primary interface for the Connect Agent system,
-    providing both sync and async methods for querying the knowledge graph.
-    """
+    """Enhanced Connect Agent with GPT-4o powered query processing."""
     
     def __init__(self):
-        """Initialize the Connect Agent."""
-        self.workflow = WorkflowGraphBuilder.build_graph()
+        """Initialize the agent."""
+        print("🚀 Initializing Enhanced Connect Agent...")
+        self.workflow_builder = WorkflowGraphBuilder()
+        self.workflow = self.workflow_builder.build_graph()
         self.session_history: List[Dict[str, Any]] = []
+        print("✅ Agent ready!")
     
-    async def ask(self, question: str, conversation_id: str = None) -> str:
-        """
-        Ask a question and get a simple response.
-        
-        Args:
-            question: The user's question
-            conversation_id: Optional conversation ID for context
-            
-        Returns:
-            String response from the agent
-        """
-        result = await self.ask_detailed(question, conversation_id)
+    async def ask(self, question: str, session_id: str = None, formatted: bool = True) -> str:
+        """Ask a question and get response."""
+        result = await self.ask_detailed(question, session_id, formatted=formatted)
         return result['response']
     
-    async def ask_detailed(self, question: str, conversation_id: str = None) -> Dict[str, Any]:
-        """
-        Ask a question and get detailed response with metadata.
-        
-        Args:
-            question: The user's question
-            conversation_id: Optional conversation ID for context
-            
-        Returns:
-            Detailed response dictionary with metadata
-        """
-        
+    async def ask_detailed(self, question: str, session_id: str = None, formatted: bool = True) -> Dict[str, Any]:
+        """Ask a question with detailed metadata."""
         start_time = time.time()
-        conversation_id = conversation_id or f"conv-{int(time.time())}"
+        session_id = session_id or f"session-{int(time.time())}"
         
         # Create initial state
-        initial_state = {
+        initial_state: AgentState = {
             'user_query': question,
-            'conversation_id': conversation_id,
+            'session_id': session_id,
             'workflow_status': 'initialized',
             'messages': [],
             'accumulated_data': [],
             'tool_results': [],
             'errors': [],
-            'session_id': f"session-{int(time.time())}",
-            'tools_used': []
+            'tools_used': [],
+            'filters': {},
+            'sub_queries': [],
+            'execution_strategy': 'parallel_union',
+            'planning_metadata': {},
+            'final_response': '',
+            'desired_count': 5  # Default to 5, will be overridden by planner if specified in query
         }
         
         try:
-            # Execute the simplified workflow
+            print(f"🔍 Processing: '{question}'")
             result = await self.workflow.ainvoke(initial_state)
             execution_time = time.time() - start_time
             
-            # Extract the final response
-            response = result.get('final_response', f"I processed your question '{question}' but didn't generate a final response.")
+            # Get response from result
+            response = result.get('final_response', 'No response generated.')
+            accumulated_data = result.get('accumulated_data', [])
             
-            # Build detailed response
+            # Format response with person profiles if requested
+            if formatted and accumulated_data:
+                response = format_response_with_profiles(response, accumulated_data)
+            
             detailed_result = {
                 'response': response,
                 'success': True,
                 'metadata': {
-                    'conversation_id': conversation_id,
+                    'session_id': session_id,
                     'execution_time': execution_time,
                     'tools_used': result.get('tools_used', []),
                     'data_found': len(result.get('accumulated_data', [])),
-                    'workflow_status': result.get('workflow_status', 'unknown')
+                    'workflow_status': result.get('workflow_status', 'unknown'),
+                    'filters': result.get('filters', {}),
+                    'sub_queries': len(result.get('sub_queries', []))
                 }
             }
             
-            # Add to session history
             self.session_history.append({
                 'question': question,
                 'response': response,
@@ -104,12 +200,12 @@ class ConnectAgent:
             })
             
             return detailed_result
-                
+            
         except Exception as e:
             execution_time = time.time() - start_time
-            error_response = f"I encountered an error while processing your question: {str(e)}"
+            error_response = f"Error: {str(e)}"
+            print(f"❌ {error_response}")
             
-            # Add error to session history
             self.session_history.append({
                 'question': question,
                 'response': error_response,
@@ -122,33 +218,16 @@ class ConnectAgent:
                 'response': error_response,
                 'success': False,
                 'metadata': {
-                    'conversation_id': conversation_id,
+                    'session_id': session_id,
                     'execution_time': execution_time,
-                    'tools_used': [],
-                    'data_found': 0,
-                    'workflow_status': 'error',
                     'error': str(e)
                 }
             }
     
-    def get_session_history(self) -> List[Dict[str, Any]]:
-        """Get session history."""
-        return self.session_history.copy()
-    
-    def clear_history(self):
-        """Clear session history."""
-        self.session_history.clear()
-    
     def get_session_summary(self) -> Dict[str, Any]:
-        """Get session summary statistics."""
+        """Get session statistics."""
         if not self.session_history:
-            return {
-                'total_questions': 0,
-                'success_rate': 0.0,
-                'average_execution_time': 0.0,
-                'successful_queries': 0,
-                'failed_queries': 0
-            }
+            return {'total_questions': 0, 'success_rate': 0.0}
         
         successful = [h for h in self.session_history if h['success']]
         total_time = sum(h['execution_time'] for h in self.session_history)
@@ -156,172 +235,71 @@ class ConnectAgent:
         return {
             'total_questions': len(self.session_history),
             'success_rate': len(successful) / len(self.session_history),
-            'average_execution_time': total_time / len(self.session_history),
-            'successful_queries': len(successful),
-            'failed_queries': len(self.session_history) - len(successful)
+            'average_time': total_time / len(self.session_history),
+            'successful': len(successful),
+            'failed': len(self.session_history) - len(successful)
         }
+    
+    def clear_history(self):
+        """Clear session history."""
+        self.session_history.clear()
 
 
-# Global agent instance
-_agent_instance = None
+# Global instance
+_agent = None
 
 
 def get_agent() -> ConnectAgent:
-    """Get or create the global agent instance."""
-    global _agent_instance
-    if _agent_instance is None:
-        _agent_instance = ConnectAgent()
-    return _agent_instance
+    """Get or create agent instance."""
+    global _agent
+    if _agent is None:
+        _agent = ConnectAgent()
+    return _agent
 
 
-# Synchronous wrapper functions for easy use
-def ask_sync(question: str, conversation_id: str = None) -> str:
-    """
-    Synchronous wrapper for asking questions.
-    
-    Args:
-        question: The user's question
-        conversation_id: Optional conversation ID
-        
-    Returns:
-        String response
-    """
-    agent = get_agent()
-    return asyncio.run(agent.ask(question, conversation_id))
-
-
-def ask_detailed_sync(question: str, conversation_id: str = None) -> Dict[str, Any]:
-    """
-    Synchronous wrapper for detailed questions.
-    
-    Args:
-        question: The user's question
-        conversation_id: Optional conversation ID
-        
-    Returns:
-        Detailed response dictionary
-    """
-    agent = get_agent()
-    return asyncio.run(agent.ask_detailed(question, conversation_id))
-
-
-def batch_ask(questions: List[str], conversation_id: str = None) -> List[str]:
-    """
-    Ask multiple questions in batch.
-    
-    Args:
-        questions: List of questions to ask
-        conversation_id: Optional conversation ID
-        
-    Returns:
-        List of responses
-    """
-    agent = get_agent()
-    
-    async def _batch_ask():
-        tasks = [agent.ask(q, conversation_id) for q in questions]
-        return await asyncio.gather(*tasks)
-    
-    return asyncio.run(_batch_ask())
-
-
-def get_session_summary() -> Dict[str, Any]:
-    """Get session summary statistics."""
-    agent = get_agent()
-    return agent.get_session_summary()
-
-
-def clear_session():
-    """Clear session history."""
-    agent = get_agent()
-    agent.clear_history()
-
-
-def get_agent_info() -> Dict[str, Any]:
-    """Get agent information and capabilities."""
-    return {
-        'agent_type': 'SimplifiedConnectAgent',
-        'version': '1.0.0',
-        'capabilities': [
-            'Natural language people search',
-            'Skill-based queries',
-            'Company and location search', 
-            'Role-based search',
-            'Complex multi-criteria queries'
-        ],
-        'workflow': 'Linear LangGraph (Planning → Execution → Synthesis)',
-        'tools': '24+ MCP tools for Neo4j knowledge graph',
-        'data_size': '1,992+ professional profiles'
-    }
-
-
-def print_usage():
-    """Print usage information."""
-    print("""
-Connect Agent - People Knowledge Graph Assistant
-
-Usage:
-    python app/agent_run.py                     # Interactive mode
-    python app/agent_run.py "your question"    # Single query
-    python app/agent_run.py --help             # Show this help
-
-Examples:
-    python app/agent_run.py "Find Python developers"
-    python app/agent_run.py "Who works at Google?"
-    python app/agent_run.py "Find React experts in tech companies"
-
-Interactive mode commands:
-    - Type your questions naturally
-    - 'summary' - Show session statistics
-    - 'clear' - Clear session history  
-    - 'quit' or 'exit' - Exit the program
-""")
+def ask_sync(question: str) -> str:
+    """Synchronous ask wrapper."""
+    return asyncio.run(get_agent().ask(question))
 
 
 async def interactive_mode():
-    """Run interactive mode."""
+    """Run interactive CLI mode."""
     agent = get_agent()
     
-    print("\n" + "="*60)
-    print("🤖 CONNECT AGENT - Interactive Mode")
-    print("Ask questions about people in the knowledge graph")
-    print("Type 'quit' to exit, 'summary' for stats, 'clear' to reset")
-    print("="*60)
+    print("\n" + "="*70)
+    print("🤖 ENHANCED CONNECT AGENT - Interactive Mode")
+    print("="*70)
+    print("Ask questions about professionals in the knowledge graph")
+    print("Commands: 'quit' to exit | 'summary' for stats | 'clear' to reset")
+    print("="*70)
     
     while True:
         try:
-            question = input("\n🤔 Your question: ").strip()
+            question = input("\n💬 Your question: ").strip()
             
             if question.lower() in ['quit', 'exit', 'q']:
+                print("\n👋 Goodbye!")
                 break
             elif question.lower() == 'summary':
                 summary = agent.get_session_summary()
                 print(f"\n📊 Session Summary:")
-                print(f"   Questions asked: {summary['total_questions']}")
-                print(f"   Success rate: {summary['success_rate']:.1%}")
-                print(f"   Average time: {summary['average_execution_time']:.2f}s")
+                print(f"   Questions: {summary['total_questions']}")
+                print(f"   Success: {summary['success_rate']:.1%}")
+                print(f"   Avg time: {summary.get('average_time', 0):.2f}s")
                 continue
             elif question.lower() == 'clear':
                 agent.clear_history()
-                print("🧹 Session history cleared")
+                print("🧹 History cleared")
                 continue
             elif not question:
                 continue
             
-            print("🤖 Thinking...")
-            start_time = time.time()
-            
+            start = time.time()
             response = await agent.ask(question)
-            duration = time.time() - start_time
+            duration = time.time() - start
             
-            # Display response
-            if len(response) > 300:
-                print(f"💬 Response: {response[:300]}...")
-                print(f"📄 ({len(response)} characters total)")
-            else:
-                print(f"💬 Response: {response}")
-            
-            print(f"⏱️  {duration:.2f}s")
+            print(f"\n✨ Response:\n{response}")
+            print(f"\n⏱️  {duration:.2f}s")
             
         except KeyboardInterrupt:
             print("\n\n👋 Goodbye!")
@@ -330,10 +308,37 @@ async def interactive_mode():
             print(f"❌ Error: {e}")
 
 
+def print_usage():
+    """Print usage info."""
+    print("""
+🤖 Enhanced Connect Agent - People Knowledge Graph Assistant
+
+Usage:
+    python app/agent_run.py                  # Interactive mode
+    python app/agent_run.py "your question"  # Single query
+    python app/agent_run.py --help           # Show help
+
+Examples:
+    python app/agent_run.py "Find Python developers at Google"
+    python app/agent_run.py "Who are AI experts in Bangalore?"
+    python app/agent_run.py "Find IIT Bombay alumni working in startups"
+
+Interactive Commands:
+    - Type questions naturally
+    - 'summary' - Show session statistics
+    - 'clear' - Clear history
+    - 'quit' - Exit
+
+Features:
+    ✨ GPT-4o powered query understanding
+    ✨ Multi-tool parallel execution
+    ✨ Professional response generation
+    ✨ 1,028+ professional profiles
+""")
+
+
 def main():
     """Main entry point."""
-    
-    # Parse command line arguments
     if len(sys.argv) == 1:
         # Interactive mode
         asyncio.run(interactive_mode())
@@ -342,23 +347,16 @@ def main():
         print_usage()
     
     else:
-        # Single query mode
+        # Single query
         question = ' '.join(sys.argv[1:])
-        
-        print(f"🤔 Question: {question}")
-        print("🤖 Processing...")
+        print(f"\n🔍 Question: {question}\n")
         
         try:
-            start_time = time.time()
             response = ask_sync(question)
-            duration = time.time() - start_time
-            
-            print(f"\n💬 Response: {response}")
-            print(f"⏱️  Execution time: {duration:.2f}s")
-            
+            print(f"✨ Response:\n{response}\n")
         except Exception as e:
             print(f"❌ Error: {e}")
-            print("Make sure the MCP server is running: python -m mcp.server")
+            print("💡 Make sure MCP server is running: python -m mcp.server")
 
 
 if __name__ == "__main__":

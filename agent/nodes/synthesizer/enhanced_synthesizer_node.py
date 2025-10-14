@@ -101,7 +101,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
             state['errors'] = []
         state['errors'].append("MCP Client not available for synthesis")
         state['workflow_status'] = 'error'
-        state['response'] = "Error: Unable to fetch person profiles."
+        state['final_response'] = "Error: Unable to fetch person profiles."
         return state
     
     try:
@@ -111,7 +111,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         tool_results = state.get('tool_results', [])
         
         if not person_ids:
-            state['response'] = "I couldn't find any people matching your search criteria. Please try refining your query."
+            state['final_response'] = "I couldn't find any people matching your search criteria. Please try refining your query."
             state['workflow_status'] = 'complete'
             state['synthesizer_metadata'] = {
                 'total_person_ids': 0,
@@ -127,8 +127,10 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         print(f"🎯 Original query: {user_query}")
         
         # Step 1: Determine how many profiles to fetch
-        top_n = min(len(person_ids), 10)  # Fetch top 10 or fewer if less available
-        print(f"📥 Fetching top {top_n} profiles...")
+        # Check if user specified a desired count in the query, otherwise default to 5
+        desired_count = state.get('desired_count', 5)  # Default to 5 profiles
+        top_n = min(len(person_ids), desired_count)
+        print(f"📥 Fetching top {top_n} profiles (desired: {desired_count}, available: {len(person_ids)})...")
         
         # Step 2: Fetch complete profiles via MCP
         profiles = await fetch_person_profiles(person_ids[:top_n])
@@ -144,7 +146,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         )
         
         # Step 4: Update state
-        state['response'] = response
+        state['final_response'] = response  # Changed from 'response' to 'final_response'
         state['synthesizer_metadata'] = {
             'total_person_ids': len(person_ids),
             'profiles_fetched': len(profiles),
@@ -171,7 +173,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
             state['errors'] = []
         state['errors'].append(f"Synthesizer error: {str(e)}")
         state['workflow_status'] = 'error'
-        state['response'] = f"Error generating response: {str(e)}"
+        state['final_response'] = f"Error generating response: {str(e)}"
         return state
 
 
@@ -337,16 +339,18 @@ Candidate Profiles:
 
 Your Task:
 Generate a professional, human-readable response that:
-1. Starts with a summary of the search results
-2. Presents each candidate with:
+1. Starts with a brief summary of the search results
+2. **IMPORTANT: Present EVERY SINGLE candidate profile provided below** - do not skip any profiles
+3. For each candidate, include:
    - Name and current role
    - Key skills that match the search criteria
    - Relevant experience highlights
    - Contact information (email, LinkedIn)
    - Why they're a good match
-3. Uses clear formatting with sections and bullet points
-4. Is concise but informative (aim for 500-800 words)
+4. Uses clear formatting with numbered sections for each candidate
 5. Maintains a professional yet friendly tone
+
+**CRITICAL: You must include ALL {len(profiles)} candidates in your response. Do not summarize or skip any profiles.**
 
 Format the response in a clear, structured way that a hiring manager can easily scan and understand.
 """
@@ -365,7 +369,7 @@ Format the response in a clear, structured way that a hiring manager can easily 
             }
         ],
         temperature=0.7,
-        max_tokens=2000
+        max_tokens=4000  # Increased to accommodate more profiles (approx 250 tokens per profile)
     )
     
     response_text = response.choices[0].message.content
