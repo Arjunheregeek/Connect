@@ -126,16 +126,23 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         print(f"📊 Total person IDs: {len(person_ids)}")
         print(f"🎯 Original query: {user_query}")
         
-        # Step 1: Determine how many profiles to fetch
-        # Check if user specified a desired count in the query, otherwise default to 5
+        # Step 1: Determine how many profiles we want
         desired_count = state.get('desired_count', 5)  # Default to 5 profiles
         top_n = min(len(person_ids), desired_count)
-        print(f"📥 Fetching top {top_n} profiles (desired: {desired_count}, available: {len(person_ids)})...")
         
-        # Step 2: Fetch complete profiles via MCP
-        profiles = await fetch_person_profiles(person_ids[:top_n])
+        # Step 2: Check if we already have complete profile data from tool_results
+        # If get_person_complete_profile was called, we can reuse that data
+        profiles = []
+        profiles_from_cache = extract_profiles_from_tool_results(tool_results)
         
-        print(f"✅ Successfully fetched {len(profiles)} complete profiles")
+        if profiles_from_cache:
+            print(f"✅ Using {len(profiles_from_cache)} cached profiles from tool_results")
+            profiles = profiles_from_cache
+        else:
+            # Step 3: Fetch complete profiles via MCP
+            print(f"📥 Fetching top {top_n} profiles (desired: {desired_count}, available: {len(person_ids)})...")
+            profiles = await fetch_person_profiles(person_ids[:top_n])
+            print(f"✅ Successfully fetched {len(profiles)} complete profiles")
         
         # Step 3: Generate natural language response
         response, token_usage = generate_natural_language_response(
@@ -212,6 +219,42 @@ async def fetch_person_profiles(person_ids: List[int]) -> List[Dict[str, Any]]:
     return profiles
 
 
+def extract_profiles_from_tool_results(tool_results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Extract complete profile data from cached tool_results.
+    
+    If get_person_complete_profile was already called, we can reuse that data
+    instead of re-fetching from MCP.
+    
+    Args:
+        tool_results: List of tool execution results from executor
+        
+    Returns:
+        List of complete person profile dictionaries
+    """
+    profiles = []
+    
+    for result in tool_results:
+        # Only process successful get_person_complete_profile calls
+        if not result.get('success'):
+            continue
+            
+        tool_name = result.get('tool_name', '')
+        if tool_name != 'get_person_complete_profile':
+            continue
+        
+        # Extract profile from response_data
+        response_data = result.get('response_data')
+        if not response_data:
+            continue
+        
+        profile_data = parse_profile_response(response_data)
+        if profile_data:
+            profiles.append(profile_data)
+    
+    return profiles
+
+
 def parse_profile_response(response_data: Any) -> Dict[str, Any]:
     """
     Parse MCP response to extract profile data.
@@ -241,7 +284,7 @@ def parse_profile_response(response_data: Any) -> Dict[str, Any]:
             parsed_data = json.loads(text_content)
         except (json.JSONDecodeError, ValueError):
             try:
-                # Strategy 2: Preprocess for Neo4j DateTime and HTML entities, then ast.literal_eval
+                # Strategy 2: Preprocess for Neo4j DateTime, nan, and HTML entities, then ast.literal_eval
                 import re
                 import html
                 
@@ -252,18 +295,22 @@ def parse_profile_response(response_data: Any) -> Dict[str, Any]:
                 # Pattern: neo4j.time.DateTime(2025, 10, 9, 12, 8, 29, 8740000)
                 text_processed = re.sub(
                     r'neo4j\.time\.DateTime\([^)]+\)',
-                    '"<datetime>"',
+                    'None',
                     text_processed
                 )
                 
                 # Also handle other potential Neo4j types
-                text_processed = re.sub(r'neo4j\.[a-zA-Z.]+\([^)]+\)', '"<neo4j_object>"', text_processed)
+                text_processed = re.sub(r'neo4j\.[a-zA-Z.]+\([^)]+\)', 'None', text_processed)
+                
+                # Handle nan (floating point NaN)
+                text_processed = re.sub(r'\bnan\b', 'None', text_processed)
                 
                 # Clean up whitespace
                 text_processed = text_processed.replace('\n', ' ').replace('\r', '')
                 
                 parsed_data = ast.literal_eval(text_processed)
-            except (ValueError, SyntaxError):
+            except (ValueError, SyntaxError) as e:
+                print(f"  ⚠️  ast.literal_eval failed: {str(e)[:100]}")
                 try:
                     # Strategy 3: Replace single quotes with double quotes and try JSON again
                     import re
@@ -271,14 +318,17 @@ def parse_profile_response(response_data: Any) -> Dict[str, Any]:
                     
                     text_cleaned = html.unescape(text_content)
                     # Remove Neo4j objects first
-                    text_cleaned = re.sub(r'neo4j\.[a-zA-Z.]+\([^)]+\)', '"<neo4j_object>"', text_cleaned)
+                    text_cleaned = re.sub(r'neo4j\.[a-zA-Z.]+\([^)]+\)', 'null', text_cleaned)
+                    # Handle nan
+                    text_cleaned = re.sub(r'\bnan\b', 'null', text_cleaned)
                     text_cleaned = text_cleaned.replace("'", '"')
                     # Handle None, True, False (Python) -> null, true, false (JSON)
                     text_cleaned = re.sub(r'\bNone\b', 'null', text_cleaned)
                     text_cleaned = re.sub(r'\bTrue\b', 'true', text_cleaned)
                     text_cleaned = re.sub(r'\bFalse\b', 'false', text_cleaned)
                     parsed_data = json.loads(text_cleaned)
-                except (json.JSONDecodeError, ValueError):
+                except (json.JSONDecodeError, ValueError) as e2:
+                    print(f"  ⚠️  JSON parsing also failed: {str(e2)[:100]}")
                     return None
         
         # Extract first profile if it's a list
@@ -382,6 +432,15 @@ def format_profile_summary(profile: Dict[str, Any]) -> str:
     """
     Format a single profile into a structured summary for GPT-4o.
     """
+    # Handle total_experience_months safely (could be None)
+    total_exp_months = profile.get('total_experience_months') or 0
+    if isinstance(total_exp_months, (int, float)) and total_exp_months > 0:
+        years = int(total_exp_months) // 12
+        months = int(total_exp_months) % 12
+        experience_str = f"{years} years {months} months"
+    else:
+        experience_str = "N/A"
+    
     lines = [
         f"\n{'='*60}",
         f"Profile ID: {profile.get('person_id', 'N/A')}",
@@ -389,7 +448,7 @@ def format_profile_summary(profile: Dict[str, Any]) -> str:
         f"Headline: {profile.get('headline', 'N/A')}",
         f"Current Role: {profile.get('current_title', 'N/A')} at {profile.get('current_company', 'N/A')}",
         f"Location: {profile.get('location', 'N/A')}",
-        f"Total Experience: {profile.get('total_experience_months', 0) // 12} years {profile.get('total_experience_months', 0) % 12} months",
+        f"Total Experience: {experience_str}",
         ""
     ]
     

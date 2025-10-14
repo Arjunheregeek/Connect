@@ -387,6 +387,31 @@ Output:
   "total_sub_queries": 2
 }}
 
+Example 5 - Name-based Search (CRITICAL - Use person_name parameter):
+Filters: {{"name_filters": ["John Smith"], ...}}
+Output:
+{{
+  "original_query": "Find John Smith",
+  "filters_used": {{"name_filters": ["John Smith"]}},
+  "sub_queries": [
+    {{
+      "sub_query": "Get complete profile for John Smith",
+      "tool": "get_person_complete_profile",
+      "params": {{"person_name": "John Smith"}},
+      "priority": 1,
+      "rationale": "Direct lookup by name using person_name parameter (NOT 'name') to fetch full profile"
+    }}
+  ],
+  "execution_strategy": "sequential",
+  "total_sub_queries": 1
+}}
+
+CRITICAL PARAMETER NAMING RULES:
+- get_person_complete_profile: MUST use "person_name" parameter (NOT "name") for name-based lookups
+- get_person_complete_profile: Can also use "person_id" if ID is already known
+- find_person_by_name: Use "name" parameter (for lightweight search that returns person_id)
+- For simple name lookups, use get_person_complete_profile directly with person_name (no need for find_person_by_name first)
+
 NOW GENERATE SUB-QUERIES FOR THESE FILTERS.
 Return ONLY valid JSON matching the structure shown in examples."""
 
