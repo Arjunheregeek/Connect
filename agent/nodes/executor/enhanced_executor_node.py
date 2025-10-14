@@ -246,7 +246,9 @@ async def execute_single_subquery(mcp_client: Any, sub_query: Dict[str, Any]) ->
         # Check if successful
         if response.success and response.data:
             # Extract person IDs from response
-            person_ids = extract_person_ids_from_response(response.data)
+            person_ids = extract_person_ids_from_response(response.data, tool_name)
+            
+            print(f"      ✅ Extracted {len(person_ids)} person IDs from {tool_name}")
             
             return {
                 'sub_query': sub_query.get('sub_query', ''),
@@ -281,7 +283,7 @@ async def execute_single_subquery(mcp_client: Any, sub_query: Dict[str, Any]) ->
         }
 
 
-def extract_person_ids_from_response(response_data: Any) -> List[int]:
+def extract_person_ids_from_response(response_data: Any, tool_name: str = "") -> List[int]:
     """
     Extract person IDs from MCP response data.
     
@@ -295,6 +297,7 @@ def extract_person_ids_from_response(response_data: Any) -> List[int]:
     
     Args:
         response_data: Response data from MCP tool (dict with 'content' key)
+        tool_name: Name of the tool (for better debugging)
         
     Returns:
         List of person IDs
@@ -304,24 +307,26 @@ def extract_person_ids_from_response(response_data: Any) -> List[int]:
     try:
         # Step 1: Extract the stringified data from MCP response format
         if not isinstance(response_data, dict):
-            print(f"  ⚠️  Expected dict, got {type(response_data)}")
+            print(f"      ⚠️  [{tool_name}] Expected dict, got {type(response_data)}")
             return person_ids
         
         # MCP response has 'content' array
         if 'content' not in response_data:
-            print(f"  ⚠️  No 'content' field in response_data. Keys: {response_data.keys()}")
+            print(f"      ⚠️  [{tool_name}] No 'content' field in response_data. Keys: {response_data.keys()}")
             return person_ids
         
         content = response_data['content']
         if not isinstance(content, list) or len(content) == 0:
-            print(f"  ⚠️  'content' is not a list or is empty")
+            print(f"      ⚠️  [{tool_name}] 'content' is not a list or is empty")
             return person_ids
         
         # Extract the 'text' field which contains the stringified data
         text_content = content[0].get('text', '')
         if not text_content:
-            print(f"  ⚠️  No 'text' in content[0]")
+            print(f"      ⚠️  [{tool_name}] No 'text' in content[0]")
             return person_ids
+        
+        print(f"      🔍 [{tool_name}] Text content preview: {text_content[:200]}...")
         
         # Step 2: Parse the stringified data
         # The text is a string representation of a Python list/dict
@@ -350,14 +355,14 @@ def extract_person_ids_from_response(response_data: Any) -> List[int]:
                         try:
                             person_ids.append(int(pid))
                         except (ValueError, TypeError):
-                            print(f"  ⚠️  Invalid person_id: {pid}")
+                            print(f"      ⚠️  [{tool_name}] Invalid person_id: {pid}")
                 elif isinstance(item, (int, str)):
                     # Sometimes might just be a list of IDs
                     try:
                         person_ids.append(int(item))
                     except (ValueError, TypeError):
                         pass
-            print(f"  ✅ Extracted {len(person_ids)} person IDs from list")
+            print(f"      ✅ [{tool_name}] Extracted {len(person_ids)} person IDs from list")
         
         elif isinstance(parsed_data, dict):
             # Single person object or wrapper dict
@@ -382,13 +387,13 @@ def extract_person_ids_from_response(response_data: Any) -> List[int]:
                     except (ValueError, TypeError):
                         pass
             else:
-                print(f"  ⚠️  Dict format not recognized. Keys: {parsed_data.keys()}")
+                print(f"      ⚠️  [{tool_name}] Dict format not recognized. Keys: {parsed_data.keys()}")
         
         else:
-            print(f"  ⚠️  Unexpected parsed_data type: {type(parsed_data)}")
+            print(f"      ⚠️  [{tool_name}] Unexpected parsed_data type: {type(parsed_data)}")
     
     except Exception as e:
-        print(f"  ⚠️  Error extracting person IDs: {e}")
+        print(f"      ⚠️  [{tool_name}] Error extracting person IDs: {e}")
         import traceback
         print(traceback.format_exc())
     
@@ -403,6 +408,11 @@ def aggregate_results(
     """
     Aggregate person IDs based on execution strategy.
     
+    IMPORTANT: For parallel_intersect with multiple filters, we use a softened approach:
+    - UNION all skill-related queries (find_people_by_skill + search_job_descriptions_by_keywords)
+    - INTERSECT the skill union with other filters (experience, company, etc.)
+    - This ensures we're not too strict and show nearest possible matches
+    
     Args:
         all_person_ids: Dict mapping sub-query keys to sets of person IDs
         strategy: Execution strategy (parallel_intersect/parallel_union/sequential)
@@ -415,12 +425,53 @@ def aggregate_results(
         return set()
     
     if strategy == 'parallel_intersect':
-        # Intersection: Only people who match ALL priority 1 queries
-        priority_1_ids = [ids for key, ids in all_person_ids.items() if key.endswith('_1')]
-        if priority_1_ids:
-            result = set.intersection(*priority_1_ids) if len(priority_1_ids) > 1 else priority_1_ids[0]
+        # SOFTENED INTERSECTION: Union skills first, then intersect with other filters
+        priority_1_keys = [key for key in all_person_ids.keys() if key.endswith('_1')]
+        
+        # Separate skill-related queries from other filters
+        skill_keys = [k for k in priority_1_keys if 'find_people_by_skill' in k or 'search_job_descriptions' in k]
+        other_keys = [k for k in priority_1_keys if k not in skill_keys]
+        
+        # UNION all skill queries (OR logic for skills)
+        skill_ids = set()
+        if skill_keys:
+            skill_sets = [all_person_ids[k] for k in skill_keys]
+            skill_ids = set.union(*skill_sets) if skill_sets else set()
+            print(f"      💡 Skill queries union: {len(skill_ids)} people")
+        
+        # INTERSECT skill union with other filters (AND logic for other criteria)
+        if other_keys:
+            other_sets = [all_person_ids[k] for k in other_keys]
+            other_intersection = set.intersection(*other_sets) if len(other_sets) > 1 else other_sets[0]
+            print(f"      💡 Other filters intersection: {len(other_intersection)} people")
+            
+            # Final intersection: skills AND other filters
+            if skill_ids:
+                result = skill_ids.intersection(other_intersection)
+                print(f"      ✅ Final intersection (skills ∩ others): {len(result)} people")
+            else:
+                result = other_intersection
         else:
-            result = set()
+            # Only skill queries, return skill union
+            result = skill_ids
+        
+        # FALLBACK: If strict intersection is empty but we have results, return nearest matches
+        if not result and (skill_ids or other_keys):
+            print(f"      ⚠️  Strict intersection empty, returning nearest matches...")
+            # Return people who match MOST criteria (at least 50% of filters)
+            if skill_ids and other_keys:
+                # If we have both skills and other filters but no perfect match
+                # Return people who match skills (they're the most relevant)
+                result = skill_ids
+                print(f"      💡 Fallback: Returning {len(result)} people with matching skills")
+            elif skill_ids:
+                result = skill_ids
+            else:
+                # Union of all priority 1 results as last resort
+                priority_1_sets = [all_person_ids[k] for k in priority_1_keys]
+                result = set.union(*priority_1_sets) if priority_1_sets else set()
+                print(f"      💡 Fallback: Returning {len(result)} people from union")
+        
         return result
     
     elif strategy == 'parallel_union':
