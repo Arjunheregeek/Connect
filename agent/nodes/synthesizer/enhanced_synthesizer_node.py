@@ -101,7 +101,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
             state['errors'] = []
         state['errors'].append("MCP Client not available for synthesis")
         state['workflow_status'] = 'error'
-        state['response'] = "Error: Unable to fetch person profiles."
+        state['final_response'] = "Error: Unable to fetch person profiles."
         return state
     
     try:
@@ -111,7 +111,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         tool_results = state.get('tool_results', [])
         
         if not person_ids:
-            state['response'] = "I couldn't find any people matching your search criteria. Please try refining your query."
+            state['final_response'] = "I couldn't find any people matching your search criteria. Please try refining your query."
             state['workflow_status'] = 'complete'
             state['synthesizer_metadata'] = {
                 'total_person_ids': 0,
@@ -144,7 +144,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         )
         
         # Step 4: Update state
-        state['response'] = response
+        state['final_response'] = response  # Changed from 'response' to 'final_response'
         state['synthesizer_metadata'] = {
             'total_person_ids': len(person_ids),
             'profiles_fetched': len(profiles),
@@ -171,7 +171,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
             state['errors'] = []
         state['errors'].append(f"Synthesizer error: {str(e)}")
         state['workflow_status'] = 'error'
-        state['response'] = f"Error generating response: {str(e)}"
+        state['final_response'] = f"Error generating response: {str(e)}"
         return state
 
 
