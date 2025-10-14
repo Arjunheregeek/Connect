@@ -13,25 +13,10 @@ Enhanced Features:
 from langgraph.graph import StateGraph, END
 from agent.state import AgentState
 
-# Try to import enhanced planner, fallback to simple if not available
-# Try to import enhanced nodes, fallback to simple if not available
-try:
-    from agent.nodes.planner.enhanced_planner_node import enhanced_planner_node
-    ENHANCED_PLANNER_AVAILABLE = True
-except ImportError:
-    from agent.nodes.planner.simple_planner import simple_planner_node
-    enhanced_planner_node = simple_planner_node
-    ENHANCED_PLANNER_AVAILABLE = False
-
-try:
-    from agent.nodes.executor.enhanced_executor_node import enhanced_executor_node
-    ENHANCED_EXECUTOR_AVAILABLE = True
-except ImportError:
-    from agent.nodes.executor.simple_executor import simple_executor_node
-    enhanced_executor_node = simple_executor_node
-    ENHANCED_EXECUTOR_AVAILABLE = False
-
-from agent.nodes.synthesizer.simple_synthesizer import simple_synthesizer_node
+# Import enhanced nodes
+from agent.nodes.planner.enhanced_planner_node import enhanced_planner_node
+from agent.nodes.executor.enhanced_executor_node import enhanced_executor_node
+from agent.nodes.synthesizer.enhanced_synthesizer_node import enhanced_synthesizer_node
 
 
 class WorkflowGraphBuilder:
@@ -44,7 +29,7 @@ class WorkflowGraphBuilder:
     - Multi-tool execution strategies
     
     Workflow:
-    Start → Enhanced Planner → Executor → Synthesizer → End
+    Start → Enhanced Planner → Enhanced Executor → Enhanced Synthesizer → End
     """
     
     @staticmethod
@@ -54,8 +39,8 @@ class WorkflowGraphBuilder:
         
         ENHANCED Workflow:
         Start → Enhanced Planner (QueryDecomposer + SubQueryGenerator) → 
-                Executor (Multi-tool execution) → 
-                Synthesizer (Result aggregation) → End
+                Enhanced Executor (Multi-tool execution) → 
+                Enhanced Synthesizer (GPT-4o response generation) → End
         
         Returns:
             Compiled LangGraph workflow
@@ -64,24 +49,10 @@ class WorkflowGraphBuilder:
         # Create the state graph
         workflow = StateGraph(AgentState)
         
-        # Add nodes - use enhanced nodes if available
-        planner_node = enhanced_planner_node if ENHANCED_PLANNER_AVAILABLE else simple_planner_node
-        executor_node = enhanced_executor_node if ENHANCED_EXECUTOR_AVAILABLE else simple_executor_node
-        
-        workflow.add_node("planner", planner_node)
-        workflow.add_node("executor", executor_node)
-        workflow.add_node("synthesizer", simple_synthesizer_node)
-        
-        # Log which components are being used
-        if ENHANCED_PLANNER_AVAILABLE:
-            print("✓ Using Enhanced Planner (QueryDecomposer + SubQueryGenerator)")
-        else:
-            print("⚠️  Enhanced Planner not available, using Simple Planner")
-        
-        if ENHANCED_EXECUTOR_AVAILABLE:
-            print("✓ Using Enhanced Executor (Multi-tool with priority handling)")
-        else:
-            print("⚠️  Enhanced Executor not available, using Simple Executor")
+        # Add enhanced nodes
+        workflow.add_node("planner", enhanced_planner_node)
+        workflow.add_node("executor", enhanced_executor_node)
+        workflow.add_node("synthesizer", enhanced_synthesizer_node)
         
         # Set entry point
         workflow.set_entry_point("planner")
@@ -90,6 +61,10 @@ class WorkflowGraphBuilder:
         workflow.add_edge("planner", "executor")
         workflow.add_edge("executor", "synthesizer")
         workflow.add_edge("synthesizer", END)
+        
+        return workflow.compile(
+            checkpointer=None  # No state persistence for simplicity
+        )
         
         # COMMENTED OUT - PROBLEMATIC COMPLEXITY
         # =================================================================
@@ -160,29 +135,33 @@ ENHANCED LANGGRAPH WORKFLOW
                │
                ▼
 ┌─────────────────────────────────────┐
-│         EXECUTOR                    │
+│      ENHANCED EXECUTOR              │
 │                                     │
 │  - Read sub_queries from state      │
 │  - Execute via MCP tools            │
 │  - Handle parallel/sequential       │
+│  - Extract person IDs               │
 │  - Aggregate results                │
 │                                     │
-│  Output: tool_results               │
+│  Output: accumulated_data (IDs)     │
 └──────────────┬──────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────┐
-│       SYNTHESIZER                   │
+│     ENHANCED SYNTHESIZER            │
 │                                     │
-│  - Combine tool results             │
-│  - Generate final response          │
+│  - Fetch complete profiles (MCP)    │
+│  - Rank by relevance                │
+│  - Generate response (GPT-4o)       │
+│  - Format with contact info         │
 │                                     │
-│  Output: final_response             │
+│  Output: natural language response  │
 └──────────────┬──────────────────────┘
                │
                ▼
 ┌─────────────────────────────────────┐
 │             END                     │
+│   (Human-readable response)         │
 └─────────────────────────────────────┘
 
 Key Features:
@@ -190,4 +169,6 @@ Key Features:
 - Synonym expansion for better recall
 - Multi-tool execution strategies
 - Priority-based sub-query execution
+- Complete profile retrieval
+- GPT-4o powered response generation
         """

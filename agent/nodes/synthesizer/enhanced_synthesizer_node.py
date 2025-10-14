@@ -229,18 +229,55 @@ def parse_profile_response(response_data: Any) -> Dict[str, Any]:
         if not content:
             return None
         
-        text_content = content[0].get('text', '')
+        text_content = content[0].get('text', '') if isinstance(content, list) and len(content) > 0 else ''
         if not text_content:
             return None
         
-        # Parse stringified data
+        # Parse stringified data - try multiple parsing strategies
         try:
+            # Strategy 1: Direct JSON parsing
             parsed_data = json.loads(text_content)
         except (json.JSONDecodeError, ValueError):
             try:
-                parsed_data = ast.literal_eval(text_content)
+                # Strategy 2: Preprocess for Neo4j DateTime and HTML entities, then ast.literal_eval
+                import re
+                import html
+                
+                # Decode HTML entities (&amp; -> &)
+                text_processed = html.unescape(text_content)
+                
+                # Replace Neo4j DateTime objects with string representation
+                # Pattern: neo4j.time.DateTime(2025, 10, 9, 12, 8, 29, 8740000)
+                text_processed = re.sub(
+                    r'neo4j\.time\.DateTime\([^)]+\)',
+                    '"<datetime>"',
+                    text_processed
+                )
+                
+                # Also handle other potential Neo4j types
+                text_processed = re.sub(r'neo4j\.[a-zA-Z.]+\([^)]+\)', '"<neo4j_object>"', text_processed)
+                
+                # Clean up whitespace
+                text_processed = text_processed.replace('\n', ' ').replace('\r', '')
+                
+                parsed_data = ast.literal_eval(text_processed)
             except (ValueError, SyntaxError):
-                return None
+                try:
+                    # Strategy 3: Replace single quotes with double quotes and try JSON again
+                    import re
+                    import html
+                    
+                    text_cleaned = html.unescape(text_content)
+                    # Remove Neo4j objects first
+                    text_cleaned = re.sub(r'neo4j\.[a-zA-Z.]+\([^)]+\)', '"<neo4j_object>"', text_cleaned)
+                    text_cleaned = text_cleaned.replace("'", '"')
+                    # Handle None, True, False (Python) -> null, true, false (JSON)
+                    text_cleaned = re.sub(r'\bNone\b', 'null', text_cleaned)
+                    text_cleaned = re.sub(r'\bTrue\b', 'true', text_cleaned)
+                    text_cleaned = re.sub(r'\bFalse\b', 'false', text_cleaned)
+                    parsed_data = json.loads(text_cleaned)
+                except (json.JSONDecodeError, ValueError):
+                    return None
         
         # Extract first profile if it's a list
         if isinstance(parsed_data, list) and len(parsed_data) > 0:
