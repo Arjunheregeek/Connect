@@ -1,34 +1,27 @@
 """
-Planner Package - SIMPLIFIED VERSION
+Planner Package - ENHANCED VERSION
 
-Uses simplified planner that avoids problematic complexity:
-- simple_planner: Basic planning without complex query analysis
+Exports the enhanced planner components:
+- enhanced_planner_node: Main planner using QueryDecomposer + SubQueryGenerator
+- QueryDecomposer: Extract structured filters from natural language
+- SubQueryGenerator: Generate sub-queries with tool mappings
+- TOOL_CATALOG: MCP tool definitions and descriptions
 """
 
-# SIMPLIFIED: Import the working simple planner
-from .simple_planner import simple_planner_node
+# Import enhanced components
+from .enhanced_planner_node import enhanced_planner_node
+from .query_decomposer import QueryDecomposer
+from .subquery_generator import SubQueryGenerator
+from .tool_catalog import TOOL_CATALOG, get_all_tool_names
 
-# Keep the old imports for backward compatibility but prefer simple version
-try:
-    from .query_analyzer import QueryAnalyzer
-    from .tool_mapper import ToolMapper
-    from .plan_generator import PlanGenerator
-    from .planner_node import planner_node
-except ImportError:
-    # If complex components fail to import, that's okay
-    pass
-
-# Export the simple planner as the main one
-planner_node = simple_planner_node
+# Export main planner as default
+planner_node = enhanced_planner_node
 
 __all__ = [
-    'simple_planner_node',
-    'planner_node'  # Backward compatibility
-]
-
-__all__ = [
-    'QueryAnalyzer',
-    'ToolMapper', 
-    'PlanGenerator',
-    'planner_node'
+    'enhanced_planner_node',
+    'planner_node',  # Backward compatibility
+    'QueryDecomposer',
+    'SubQueryGenerator',
+    'TOOL_CATALOG',
+    'get_all_tool_names'
 ]

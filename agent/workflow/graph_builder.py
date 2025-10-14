@@ -1,38 +1,46 @@
 """
-SIMPLIFIED LangGraph Builder
+ENHANCED LangGraph Builder
 
-Creates a simple linear workflow: Planning → Execution → Synthesis
-Removes all cyclical logic, quality assessment, and retry complexity.
+Creates an enhanced workflow with intelligent query processing:
+Planning (QueryDecomposer + SubQueryGenerator) → Execution → Synthesis
+
+Enhanced Features:
+- Query decomposition into structured filters
+- Sub-query generation with synonym expansion
+- Multi-tool execution strategies
 """
 
 from langgraph.graph import StateGraph, END
 from agent.state import AgentState
-# SIMPLIFIED: Import simplified nodes that avoid all problematic complexity
-from agent.nodes.planner.simple_planner import simple_planner_node
-from agent.nodes.executor.simple_executor import simple_executor_node  
-from agent.nodes.synthesizer.simple_synthesizer import simple_synthesizer_node
+
+# Import enhanced nodes
+from agent.nodes.planner.enhanced_planner_node import enhanced_planner_node
+from agent.nodes.executor.enhanced_executor_node import enhanced_executor_node
+from agent.nodes.synthesizer.enhanced_synthesizer_node import enhanced_synthesizer_node
 
 
 class WorkflowGraphBuilder:
     """
-    SIMPLIFIED LangGraph builder - linear workflow only.
+    ENHANCED LangGraph builder with intelligent query processing.
     
-    Removes all problematic features:
-    - Cyclical routing
-    - Quality assessment 
-    - Retry logic
-    - Enhanced wrapper nodes
+    Enhanced Features:
+    - QueryDecomposer: Extract structured filters from natural language
+    - SubQueryGenerator: Generate sub-queries with synonym expansion
+    - Multi-tool execution strategies
+    
+    Workflow:
+    Start → Enhanced Planner → Enhanced Executor → Enhanced Synthesizer → End
     """
     
     @staticmethod
     def build_graph() -> StateGraph:
         """
-        Build SIMPLE linear workflow graph.
+        Build ENHANCED workflow graph with intelligent query processing.
         
-        SIMPLIFIED Workflow:
-        Start → Planner → Executor → Synthesizer → End
-        
-        No cycles, no quality checks, no retry logic - just linear execution.
+        ENHANCED Workflow:
+        Start → Enhanced Planner (QueryDecomposer + SubQueryGenerator) → 
+                Enhanced Executor (Multi-tool execution) → 
+                Enhanced Synthesizer (GPT-4o response generation) → End
         
         Returns:
             Compiled LangGraph workflow
@@ -41,18 +49,22 @@ class WorkflowGraphBuilder:
         # Create the state graph
         workflow = StateGraph(AgentState)
         
-        # Add ONLY the simplified nodes - no complex wrappers
-        workflow.add_node("planner", simple_planner_node)
-        workflow.add_node("executor", simple_executor_node)
-        workflow.add_node("synthesizer", simple_synthesizer_node)
+        # Add enhanced nodes
+        workflow.add_node("planner", enhanced_planner_node)
+        workflow.add_node("executor", enhanced_executor_node)
+        workflow.add_node("synthesizer", enhanced_synthesizer_node)
         
         # Set entry point
         workflow.set_entry_point("planner")
         
-        # Add SIMPLE linear edges only
+        # Add linear edges
         workflow.add_edge("planner", "executor")
         workflow.add_edge("executor", "synthesizer")
         workflow.add_edge("synthesizer", END)
+        
+        return workflow.compile(
+            checkpointer=None  # No state persistence for simplicity
+        )
         
         # COMMENTED OUT - PROBLEMATIC COMPLEXITY
         # =================================================================
@@ -82,70 +94,81 @@ class WorkflowGraphBuilder:
         # workflow.add_edge("fallback", END)
         
         return workflow.compile(
-            # Remove checkpointer to avoid serialization issues
-            checkpointer=None  # SIMPLIFIED: No state persistence
+            checkpointer=None  # No state persistence for simplicity
         )
     
     @staticmethod
     def get_workflow_diagram() -> str:
         """
-        Get a text representation of the workflow diagram.
+        Get a text representation of the enhanced workflow diagram.
         
         Returns:
             ASCII diagram of the workflow
         """
         
         return """
-┌─────────────┐
-│    Start    │
-└─────┬───────┘
-      │
-      ▼
-┌─────────────┐
-│   Planner   │◄─────────────┐
-└─────┬───────┘              │
-      │                      │
-      ▼                      │
-┌─────────────┐              │
-│  Executor   │              │
-└─────┬───────┘              │
-      │                      │
-      ▼                      │
-┌─────────────┐              │
-│ Quality     │              │
-│ Check       │              │
-└─────┬───────┘              │
-      │                      │
-      ▼                      │
- ┌──────────┐                │
- │ Decision │                │
- └────┬─────┘                │
-      │                      │
-   ┌──┴──┐                   │
-   │     │                   │
-   ▼     ▼                   │
-┌─────────────┐              │
-│ Re-planner  │──────────────┘
-└─────────────┘
-   │
-   ▼
-┌─────────────┐
-│Synthesizer  │
-└─────┬───────┘
-      │
-      ▼
-┌─────────────┐
-│   Fallback  │
-└─────┬───────┘
-      │
-      ▼
-┌─────────────┐
-│     End     │
-└─────────────┘
+ENHANCED LANGGRAPH WORKFLOW
+===========================
 
-Flow Logic:
-- Quality Check decides: re_plan | synthesize | end
-- re_plan → Re-planner → Executor (creates cycle)
-- synthesize → Synthesizer → End
-- end → Fallback → End
+┌─────────────────────────────────────┐
+│             START                   │
+│        (User Query)                 │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│      ENHANCED PLANNER               │
+│                                     │
+│  Step 1: QueryDecomposer            │
+│  ├─ Natural Language → Filters      │
+│  └─ Extract: skills, companies,     │
+│              locations, experience  │
+│                                     │
+│  Step 2: SubQueryGenerator          │
+│  ├─ Filters → Sub-queries           │
+│  ├─ Synonym expansion               │
+│  ├─ Multi-tool strategies           │
+│  └─ Priority assignment             │
+│                                     │
+│  Output: sub_queries + strategy     │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│      ENHANCED EXECUTOR              │
+│                                     │
+│  - Read sub_queries from state      │
+│  - Execute via MCP tools            │
+│  - Handle parallel/sequential       │
+│  - Extract person IDs               │
+│  - Aggregate results                │
+│                                     │
+│  Output: accumulated_data (IDs)     │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│     ENHANCED SYNTHESIZER            │
+│                                     │
+│  - Fetch complete profiles (MCP)    │
+│  - Rank by relevance                │
+│  - Generate response (GPT-4o)       │
+│  - Format with contact info         │
+│                                     │
+│  Output: natural language response  │
+└──────────────┬──────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────┐
+│             END                     │
+│   (Human-readable response)         │
+└─────────────────────────────────────┘
+
+Key Features:
+- Intelligent query decomposition
+- Synonym expansion for better recall
+- Multi-tool execution strategies
+- Priority-based sub-query execution
+- Complete profile retrieval
+- GPT-4o powered response generation
         """

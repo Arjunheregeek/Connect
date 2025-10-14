@@ -1,14 +1,15 @@
 """
-Workflow Package - SIMPLIFIED VERSION
+Workflow Package - ENHANCED VERSION
 
-Simple LangGraph workflow implementation without complex retry logic:
+Enhanced LangGraph workflow implementation with intelligent query processing:
 
-- WorkflowGraphBuilder: Constructs simple linear LangGraph workflow
+- WorkflowGraphBuilder: Constructs enhanced linear LangGraph workflow
 
 The workflow supports:
-- Linear execution: Planner → Executor → Synthesizer → End
-- No retry cycles, no quality assessment complexity
-- Direct MCP tool execution
+- Linear execution: Enhanced Planner → Enhanced Executor → Enhanced Synthesizer → End
+- GPT-4o powered query decomposition and sub-query generation
+- Priority-based parallel execution with smart aggregation
+- Professional response generation with GPT-4o
 """
 
 from .graph_builder import WorkflowGraphBuilder

@@ -31,6 +31,12 @@ class AgentState(TypedDict, total=False):
     # =================================================================
     workflow_status: str                      # Current workflow phase (simplified to string)
     
+    # Enhanced Planning Fields (QueryDecomposer + SubQueryGenerator)
+    filters: Dict[str, Any]                   # Extracted filters from QueryDecomposer
+    sub_queries: List[Dict[str, Any]]         # Sub-queries with tool mappings from SubQueryGenerator
+    execution_strategy: str                   # parallel_intersect | parallel_union | sequential
+    planning_metadata: Dict[str, Any]         # Planning metadata (tokens, counts, etc.)
+    
     # =================================================================
     # LANGGRAPH INTEGRATION (ESSENTIAL)
     # =================================================================
