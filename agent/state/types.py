@@ -36,6 +36,7 @@ class AgentState(TypedDict, total=False):
     sub_queries: List[Dict[str, Any]]         # Sub-queries with tool mappings from SubQueryGenerator
     execution_strategy: str                   # parallel_intersect | parallel_union | sequential
     planning_metadata: Dict[str, Any]         # Planning metadata (tokens, counts, etc.)
+    desired_count: int                        # Number of results user wants (default: 20)
     
     # =================================================================
     # LANGGRAPH INTEGRATION (ESSENTIAL)

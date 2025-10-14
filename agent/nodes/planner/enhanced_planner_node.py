@@ -105,6 +105,31 @@ async def enhanced_planner_node(state: AgentState) -> AgentState:
         decomposer = QueryDecomposer()
         filters_result = decomposer.decompose(user_query)
         
+        # Extract desired count from query (e.g., "Find 10 people", "Find 20 candidates")
+        import re
+        desired_count = 5  # Default to 5 profiles
+        count_patterns = [
+            r'(?:find|show|get|list)\s+(\d+)\s+(?:people|candidates|persons|profiles|developers|engineers|experts)',
+            r'(?:top|first)\s+(\d+)',
+            r'(\d+)\s+(?:people|candidates|persons|profiles)',
+            r'at\s+least\s+(\d+)',
+        ]
+        
+        for pattern in count_patterns:
+            match = re.search(pattern, user_query.lower())
+            if match:
+                try:
+                    count = int(match.group(1))
+                    if count > 0 and count <= 100:  # Reasonable bounds
+                        desired_count = count
+                        break
+                except (ValueError, IndexError):
+                    pass
+        
+        # Store desired_count in state for synthesizer
+        state['desired_count'] = desired_count
+        print(f"📊 Desired count extracted: {desired_count} profiles")
+        
         # Check for decomposition errors
         if 'error' in filters_result.get('meta', {}):
             if 'errors' not in state:

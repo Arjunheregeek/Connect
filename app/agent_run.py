@@ -160,7 +160,8 @@ class ConnectAgent:
             'sub_queries': [],
             'execution_strategy': 'parallel_union',
             'planning_metadata': {},
-            'final_response': ''
+            'final_response': '',
+            'desired_count': 5  # Default to 5, will be overridden by planner if specified in query
         }
         
         try:
