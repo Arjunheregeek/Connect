@@ -332,17 +332,41 @@ def extract_person_ids_from_response(response_data: Any, tool_name: str = "") ->
         # The text is a string representation of a Python list/dict
         import json
         import ast
+        import re
         
         parsed_data = None
         
         # Try JSON first (in case server uses json.dumps)
         try:
             parsed_data = json.loads(text_content)
-        except (json.JSONDecodeError, ValueError):
+            print(f"      ✅ [{tool_name}] Successfully parsed with JSON")
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"      ⚠️  [{tool_name}] JSON parsing failed: {str(e)[:100]}")
+            
             # Try ast.literal_eval for Python string representation
             try:
                 parsed_data = ast.literal_eval(text_content)
-            except (ValueError, SyntaxError):
+                print(f"      ✅ [{tool_name}] Successfully parsed with ast.literal_eval")
+            except (ValueError, SyntaxError) as e2:
+                print(f"      ⚠️  [{tool_name}] ast.literal_eval also failed: {str(e2)[:100]}")
+                
+                # FALLBACK: Use regex to extract person_id values directly
+                # This handles cases where the string has special characters that break parsing
+                print(f"      � [{tool_name}] Attempting regex extraction as fallback...")
+                try:
+                    # Extract all person_id values using regex
+                    # Pattern matches: 'person_id': 123456789 or "person_id": 123456789
+                    pattern = r"['\"]person_id['\"]:\s*(\d+)"
+                    matches = re.findall(pattern, text_content)
+                    if matches:
+                        person_ids = [int(pid) for pid in set(matches)]  # Use set to dedupe
+                        print(f"      ✅ [{tool_name}] Regex extracted {len(person_ids)} unique person IDs")
+                        return person_ids
+                    else:
+                        print(f"      ❌ [{tool_name}] Regex found no person_id matches")
+                except Exception as e3:
+                    print(f"      ❌ [{tool_name}] Regex extraction failed: {str(e3)}")
+                
                 return person_ids
         
         # Step 3: Extract person IDs from parsed data
