@@ -232,6 +232,11 @@ GENERATION RULES:
 5. Include clear rationale for each sub-query
 6. Each sub-query must have: sub_query, tool, params, priority, rationale
 7. Use valid tool names from the available tools list
+8. **CRITICAL**: For experience filters, ALWAYS use ranges with tolerance (see examples)
+9. **CRITICAL**: Convert years to months: 1 year = 12 months, add ±6 month tolerance
+10. **CRITICAL**: For skill filters, use BOTH find_people_by_skill AND search_job_descriptions_by_keywords
+    - Mark BOTH as Priority 1 to capture all possible matches (union within skill queries)
+    - This ensures we find people with skills in either skill arrays OR job descriptions
 
 EXECUTION STRATEGY:
 - "parallel_intersect": Execute all priority 1 in parallel, then intersect results (for AND logic)
@@ -307,7 +312,56 @@ Output:
   "total_sub_queries": 3
 }}
 
-Example 3 - Role-based Search:
+Example 3 - Experience Filter (CRITICAL - Use Ranges, NOT Exact Values):
+Filters: {{"skill_filters": ["Python"], "company_filters": ["Google"], "experience_filters": {{"min_years": 2}}, ...}}
+Output:
+{{
+  "original_query": "Python developers at Google with 2 years experience",
+  "filters_used": {{"skill_filters": ["Python"], "company_filters": ["Google"], "experience_filters": {{"min_years": 2}}}},
+  "sub_queries": [
+    {{
+      "sub_query": "Find people with Python in skill arrays",
+      "tool": "find_people_by_skill",
+      "params": {{"skill": "Python"}},
+      "priority": 1,
+      "rationale": "Direct skill match in technical_skills array"
+    }},
+    {{
+      "sub_query": "Find people with Python development experience in job descriptions",
+      "tool": "search_job_descriptions_by_keywords",
+      "params": {{"keywords": ["Python", "Python developer", "Python engineer", "Python programming"], "match_type": "any"}},
+      "priority": 1,
+      "rationale": "Contextual Python experience search (captures people with Python in job history)"
+    }},
+    {{
+      "sub_query": "Find people with 2 years experience (18-30 months range)",
+      "tool": "find_people_by_experience_level",
+      "params": {{"min_months": 18, "max_months": 30}},
+      "priority": 1,
+      "rationale": "Experience range with ±6 months tolerance (2 years = 24 months ± 6)"
+    }},
+    {{
+      "sub_query": "Find Google employees",
+      "tool": "find_people_by_company",
+      "params": {{"company_name": "Google"}},
+      "priority": 1,
+      "rationale": "Direct company match for intersection"
+    }}
+  ],
+  "execution_strategy": "parallel_intersect",
+  "total_sub_queries": 4
+}}
+
+CRITICAL EXPERIENCE CONVERSION RULES:
+- "2 years" → min_months: 18, max_months: 30 (24 ± 6 months tolerance)
+- "5+ years" → min_months: 60 (no max_months for "5 or more")
+- "2-5 years" → min_months: 24, max_months: 60 (range boundaries)
+- NEVER use exact values like min_months: 24, max_months: 24 (too strict!)
+- Always add ±6 months tolerance for single year values
+- For "X+ years", only set min_months (no max)
+- For "X-Y years", use exact range boundaries in months
+
+Example 4 - Role-based Search:
 Filters: {{"skill_filters": [], "other_criteria": {{"role": "founder"}}, ...}}
 Output:
 {{
@@ -332,6 +386,31 @@ Output:
   "execution_strategy": "parallel_union",
   "total_sub_queries": 2
 }}
+
+Example 5 - Name-based Search (CRITICAL - Use person_name parameter):
+Filters: {{"name_filters": ["John Smith"], ...}}
+Output:
+{{
+  "original_query": "Find John Smith",
+  "filters_used": {{"name_filters": ["John Smith"]}},
+  "sub_queries": [
+    {{
+      "sub_query": "Get complete profile for John Smith",
+      "tool": "get_person_complete_profile",
+      "params": {{"person_name": "John Smith"}},
+      "priority": 1,
+      "rationale": "Direct lookup by name using person_name parameter (NOT 'name') to fetch full profile"
+    }}
+  ],
+  "execution_strategy": "sequential",
+  "total_sub_queries": 1
+}}
+
+CRITICAL PARAMETER NAMING RULES:
+- get_person_complete_profile: MUST use "person_name" parameter (NOT "name") for name-based lookups
+- get_person_complete_profile: Can also use "person_id" if ID is already known
+- find_person_by_name: Use "name" parameter (for lightweight search that returns person_id)
+- For simple name lookups, use get_person_complete_profile directly with person_name (no need for find_person_by_name first)
 
 NOW GENERATE SUB-QUERIES FOR THESE FILTERS.
 Return ONLY valid JSON matching the structure shown in examples."""
