@@ -1,8 +1,8 @@
 """
 MCP Tool Client
 
-This module provides high-level interfaces for all 19 MCP tools available in the
-Connect server. Each method corresponds to a specific tool and handles parameter
+This module provides high-level interfaces for all 14 MCP tools (13 query tools + health_check)
+available in the Connect server. Each method corresponds to a specific tool and handles parameter
 formatting and response processing.
 """
 
@@ -14,7 +14,7 @@ class MCPToolClient:
     """
     High-level client for MCP tools.
     
-    Provides clean Python interfaces for all 19 Connect MCP tools,
+    Provides clean Python interfaces for all 14 Connect MCP tools (13 query tools + health_check),
     handling parameter validation and response processing.
     """
     
@@ -59,7 +59,7 @@ class MCPToolClient:
         )
     
     # =================================================================
-    # CORE PERSON PROFILE TOOLS (13 tools)
+    # CORE PERSON PROFILE TOOLS (14 tools: 13 query tools + health_check)
     # =================================================================
     
     async def get_person_complete_profile(
@@ -67,7 +67,7 @@ class MCPToolClient:
         person_id: Optional[int] = None, 
         person_name: Optional[str] = None
     ) -> MCPResponse:
-        """Get complete profile for a person including ALL 35 properties, work history, and education"""
+        """Get complete profile for a person including 12 essential properties and work history"""
         params = {}
         if person_id is not None:
             params["person_id"] = person_id
@@ -86,17 +86,24 @@ class MCPToolClient:
         tool_call = ToolCall("find_people_by_skill", {"skill": skill})
         return await self.call_tool(tool_call)
     
-    async def find_people_by_company(self, company_name: str) -> MCPResponse:
-        """Find people who worked at a specific company (current or past)"""
-        tool_call = ToolCall("find_people_by_company", {"company_name": company_name})
+    async def find_people_by_technical_skill(self, skill: str) -> MCPResponse:
+        """Find people by technical skills ONLY - searches technical_skills array (Python, AWS, ML, etc.)"""
+        tool_call = ToolCall("find_people_by_technical_skill", {"skill": skill})
         return await self.call_tool(tool_call)
     
-    async def find_colleagues_at_company(self, person_id: int, company_name: str) -> MCPResponse:
-        """Find colleagues of a person at a specific company"""
-        tool_call = ToolCall("find_colleagues_at_company", {
-            "person_id": person_id,
-            "company_name": company_name
-        })
+    async def find_people_by_secondary_skill(self, skill: str) -> MCPResponse:
+        """Find people by secondary/soft skills ONLY - searches secondary_skills array (Leadership, Communication, etc.)"""
+        tool_call = ToolCall("find_people_by_secondary_skill", {"skill": skill})
+        return await self.call_tool(tool_call)
+    
+    async def find_people_by_current_company(self, company_name: str) -> MCPResponse:
+        """Find CURRENT employees of a specific company - fast property-based search"""
+        tool_call = ToolCall("find_people_by_current_company", {"company_name": company_name})
+        return await self.call_tool(tool_call)
+    
+    async def find_people_by_company_history(self, company_name: str) -> MCPResponse:
+        """Find ALL people who have worked at a specific company (current AND past employees)"""
+        tool_call = ToolCall("find_people_by_company_history", {"company_name": company_name})
         return await self.call_tool(tool_call)
     
     async def find_people_by_institution(self, institution_name: str) -> MCPResponse:
@@ -107,46 +114,6 @@ class MCPToolClient:
     async def find_people_by_location(self, location: str) -> MCPResponse:
         """Find people in a specific location or city"""
         tool_call = ToolCall("find_people_by_location", {"location": location})
-        return await self.call_tool(tool_call)
-    
-    async def get_person_skills(
-        self, 
-        person_id: Optional[int] = None, 
-        person_name: Optional[str] = None
-    ) -> MCPResponse:
-        """Get all skills for a specific person from their skill arrays"""
-        params = {}
-        if person_id is not None:
-            params["person_id"] = person_id
-        if person_name is not None:
-            params["person_name"] = person_name
-        tool_call = ToolCall("get_person_skills", params)
-        return await self.call_tool(tool_call)
-    
-    async def find_people_with_multiple_skills(
-        self, 
-        skills_list: List[str], 
-        match_type: str = "any"
-    ) -> MCPResponse:
-        """Find people with multiple skills (AND/OR logic)"""
-        tool_call = ToolCall("find_people_with_multiple_skills", {
-            "skills_list": skills_list,
-            "match_type": match_type
-        })
-        return await self.call_tool(tool_call)
-    
-    async def get_person_colleagues(
-        self, 
-        person_id: Optional[int] = None, 
-        person_name: Optional[str] = None
-    ) -> MCPResponse:
-        """Get all colleagues of a person across all companies they worked at"""
-        params = {}
-        if person_id is not None:
-            params["person_id"] = person_id
-        if person_name is not None:
-            params["person_name"] = person_name
-        tool_call = ToolCall("get_person_colleagues", params)
         return await self.call_tool(tool_call)
     
     async def find_people_by_experience_level(
@@ -162,29 +129,6 @@ class MCPToolClient:
             params["max_months"] = max_months
         tool_call = ToolCall("find_people_by_experience_level", params)
         return await self.call_tool(tool_call)
-    
-    async def get_company_employees(self, company_name: str) -> MCPResponse:
-        """Get all employees (past and present) of a specific company"""
-        tool_call = ToolCall("get_company_employees", {"company_name": company_name})
-        return await self.call_tool(tool_call)
-    
-    async def get_person_details(
-        self, 
-        person_id: Optional[int] = None, 
-        person_name: Optional[str] = None
-    ) -> MCPResponse:
-        """Get comprehensive details about a person - summary view"""
-        params = {}
-        if person_id is not None:
-            params["person_id"] = person_id
-        if person_name is not None:
-            params["person_name"] = person_name
-        tool_call = ToolCall("get_person_details", params)
-        return await self.call_tool(tool_call)
-    
-    # =================================================================
-    # JOB DESCRIPTION ANALYSIS TOOLS (5 tools)
-    # =================================================================
     
     async def get_person_job_descriptions(
         self, 
@@ -210,16 +154,6 @@ class MCPToolClient:
             "keywords": keywords,
             "match_type": match_type
         })
-        return await self.call_tool(tool_call)
-    
-    async def find_technical_skills_in_descriptions(self, tech_keywords: List[str]) -> MCPResponse:
-        """Find people who mention specific technical skills in their job descriptions"""
-        tool_call = ToolCall("find_technical_skills_in_descriptions", {"tech_keywords": tech_keywords})
-        return await self.call_tool(tool_call)
-    
-    async def find_leadership_indicators(self) -> MCPResponse:
-        """Find people with leadership indicators in their job descriptions"""
-        tool_call = ToolCall("find_leadership_indicators", {})
         return await self.call_tool(tool_call)
     
     async def find_domain_experts(self, domain_keywords: List[str]) -> MCPResponse:

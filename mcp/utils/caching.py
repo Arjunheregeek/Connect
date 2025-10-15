@@ -148,36 +148,26 @@ class CacheManager:
             "stable": LRUCache(max_size=2000, default_ttl=1800.0),  # 30 minutes
         }
         
-        # Define cache strategies for each tool
+        # Define cache strategies for each tool (14 tools: 13 query tools + health_check)
         self.tool_strategies = {
             # Dynamic data - people's current status might change
             "find_person_by_name": "dynamic",
-            "get_person_details": "dynamic",
             "get_person_job_descriptions": "dynamic",
-            "natural_language_search": "dynamic",
             
             # Standard caching - skills and company data
             "find_people_by_skill": "standard",
-            "find_people_by_company": "standard",
-            "get_person_skills": "standard",
-            "find_colleagues_at_company": "standard",
-            "get_person_colleagues": "standard",
+            "find_people_by_technical_skill": "standard",
+            "find_people_by_secondary_skill": "standard",
+            "find_people_by_current_company": "standard",
+            "find_people_by_company_history": "standard",
             "find_people_by_experience_level": "standard",
-            "get_company_employees": "standard",
             "search_job_descriptions_by_keywords": "standard",
-            "find_technical_skills_in_descriptions": "standard",
-            "analyze_career_progression": "standard",
+            "find_domain_experts": "standard",
             
             # Stable data - institutional and location data changes rarely
             "find_people_by_institution": "stable",
             "find_people_by_location": "stable",
-            "find_people_with_multiple_skills": "stable",
-            "get_skill_popularity": "stable",
-            "find_leadership_indicators": "stable",
-            "find_achievement_patterns": "stable",
-            "find_domain_experts": "stable",
-            "find_similar_career_paths": "stable",
-            "find_role_transition_patterns": "stable",
+            "get_person_complete_profile": "stable",
             
             # No caching for system tools
             "health_check": None

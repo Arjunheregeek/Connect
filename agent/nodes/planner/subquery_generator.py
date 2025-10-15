@@ -3,8 +3,24 @@ SubQuery Generator - Step 2 of Enhanced Query Processing
 
 Generates intelligent sub-queries from extracted filters with:
 - Synonym/variation expansion for skills and roles
-- Multiple search strategies (skill arrays, job descriptions, titles)
-- Smart tool mapping from the 19 available MCP tools
+- Multiple search strategies (skill arrays, job descriptions, tit8. Use valid tool names from the available tools list
+9. **CRITICAL**: For experience filters, ALWAYS use ranges with tolerance (see examples)
+10. **CRITICAL**: Convert years to months: 1 year = 12 months, add ±6 month tolerance
+11. **CRITICAL**: For technical skill filters (Python, AWS, ML, etc.):
+    - Use find_people_by_technical_skill (searches technical_skills array)
+    - ALSO use search_job_descriptions_by_keywords (searches job descriptions)
+    - Mark BOTH as Priority 1 for complete coverage (union within skill queries)
+12. **CRITICAL**: For soft skill filters (leadership, communication, etc.):
+    - Use find_people_by_secondary_skill (searches secondary_skills array)
+    - ALSO use search_job_descriptions_by_keywords (searches job descriptions)
+    - Mark BOTH as Priority 1 for complete coverage
+13. **CRITICAL**: For company filters:
+    - If query asks for "current employees" or "currently works at" → use find_people_by_current_company (fast)
+    - If query asks for "has worked at", "alumni", or doesn't specify → use find_people_by_company_history (complete)
+14. **CRITICAL**: For multi-skill queries (e.g., "Python AND JavaScript"):
+    - Use PARALLEL calls to find_people_by_technical_skill (one per skill)
+    - Results will be intersected automatically by executor
+    - DO NOT use the removed find_people_with_multiple_skills tool Smart tool mapping from the 14 available MCP tools (13 query tools + health_check)
 - Priority assignment for execution order
 
 Workflow:
@@ -64,8 +80,8 @@ class SubQueryGenerator:
     Key Features:
     - Synonym expansion (Python → Python developer, Python engineer, Python programming)
     - Multiple tool strategies (skill arrays + job descriptions + titles)
-    - Role interpretation (founder → leadership indicators, entrepreneur keywords)
-    - Smart tool selection from 19 available MCP tools
+    - Role interpretation (founder → leadership keywords in job descriptions)
+    - Smart tool selection from 14 available MCP tools (13 query tools + health_check)
     
     Example:
         Input: {
@@ -190,11 +206,11 @@ class SubQueryGenerator:
         tool_summary = []
         for tool in TOOL_CATALOG:
             tool_summary.append(f"- {tool['name']}: {tool['description'][:100]}...")
-        tools_text = "\n".join(tool_summary) if tool_summary else "19 tools available"
+        tools_text = "\n".join(tool_summary) if tool_summary else "14 tools available (13 query tools + health_check)"
         
         prompt = f"""You are generating intelligent sub-queries for a professional network search system.
 
-AVAILABLE TOOLS (19 total):
+AVAILABLE TOOLS (14 total: 13 query tools + health_check):
 {tools_text}
 
 YOUR TASK:
@@ -206,18 +222,26 @@ Generate 2-6 sub-queries from the extracted filters using MULTIPLE SEARCH STRATE
    - Founder → ["Founder", "Co-founder", "CEO", "Entrepreneur", "Startup founder"]
 
 2. **MULTI-TOOL STRATEGY**: Use multiple tools for comprehensive search
-   - Skill search: Use BOTH find_people_by_skill (skill arrays) AND search_job_descriptions_by_keywords (job history)
-   - Role search: Use find_leadership_indicators + search_job_descriptions_by_keywords
-   - Company search: Use find_people_by_company + get_company_employees
+   - Technical skill search: Use find_people_by_technical_skill (technical_skills array) + search_job_descriptions_by_keywords (job history)
+   - Soft skill search: Use find_people_by_secondary_skill (secondary_skills array) + search_job_descriptions_by_keywords (job history)
+   - General skill search: Use find_people_by_skill (all skill arrays) + search_job_descriptions_by_keywords
+   - Role/Leadership search: Use search_job_descriptions_by_keywords with leadership keywords
+   - Current employees: Use find_people_by_current_company (fast property search)
+   - Company history: Use find_people_by_company_history (current + past employees)
 
 3. **SMART TOOL SELECTION**: Pick the right tool for each filter
-   - Skills → find_people_by_skill, find_people_with_multiple_skills, search_job_descriptions_by_keywords
-   - Companies → find_people_by_company, get_company_employees
+   - Technical Skills (Python, AWS, ML, etc.) → find_people_by_technical_skill + search_job_descriptions_by_keywords
+   - Soft Skills (leadership, communication, etc.) → find_people_by_secondary_skill + search_job_descriptions_by_keywords
+   - General Skills → find_people_by_skill + search_job_descriptions_by_keywords
+   - Multi-Skill Queries → Use parallel calls to find_people_by_technical_skill or find_people_by_secondary_skill
+   - Current Company → find_people_by_current_company (fast)
+   - Company History (current + past) → find_people_by_company_history
    - Locations → find_people_by_location
-   - Names → find_person_by_name, get_person_details
+   - Names → find_person_by_name, get_person_complete_profile
    - Institutions → find_people_by_institution
    - Experience → find_people_by_experience_level
-   - Leadership/Roles → find_leadership_indicators, search_job_descriptions_by_keywords
+   - Leadership/Roles → search_job_descriptions_by_keywords with ["lead", "manage", "director", "founder"] keywords
+   - Domain Expertise → find_domain_experts
 
 EXTRACTED FILTERS:
 ```json
@@ -246,7 +270,7 @@ EXECUTION STRATEGY:
 
 FEW-SHOT EXAMPLES:
 
-Example 1 - Skill Search:
+Example 1 - Technical Skill Search:
 Filters: {{"skill_filters": ["Python"], "company_filters": [], ...}}
 Output:
 {{
@@ -254,163 +278,100 @@ Output:
   "filters_used": {{"skill_filters": ["Python"]}},
   "sub_queries": [
     {{
-      "sub_query": "Find people with Python in skill arrays",
-      "tool": "find_people_by_skill",
+      "sub_query": "Find people with Python in technical skills array",
+      "tool": "find_people_by_technical_skill",
       "params": {{"skill": "Python"}},
       "priority": 1,
-      "rationale": "Direct match in technical_skills, secondary_skills, domain_knowledge arrays"
+      "rationale": "Direct match in technical_skills array (specialized for technical skills like Python, AWS, ML)"
     }},
     {{
       "sub_query": "Find people with Python development experience in job descriptions",
       "tool": "search_job_descriptions_by_keywords",
       "params": {{"keywords": ["Python", "Python developer", "Python engineer", "Python programming"], "match_type": "any"}},
       "priority": 1,
-      "rationale": "Contextual search with synonym expansion in job history"
-    }},
-    {{
-      "sub_query": "Find people with Python technical expertise in job descriptions",
-      "tool": "find_technical_skills_in_descriptions",
-      "params": {{"tech_keywords": ["Python", "Django", "Flask", "FastAPI", "PyTorch"]}},
-      "priority": 2,
-      "rationale": "Deep technical search including related Python frameworks"
-    }}
-  ],
-  "execution_strategy": "parallel_union",
-  "total_sub_queries": 3
-}}
-
-Example 2 - Compound Search (Skill + Company):
-Filters: {{"skill_filters": ["AI"], "company_filters": ["Google"], ...}}
-Output:
-{{
-  "original_query": "AI experts at Google",
-  "filters_used": {{"skill_filters": ["AI"], "company_filters": ["Google"]}},
-  "sub_queries": [
-    {{
-      "sub_query": "Find people with AI/ML in skill arrays",
-      "tool": "find_people_with_multiple_skills",
-      "params": {{"skills_list": ["AI", "Artificial Intelligence", "Machine Learning", "Deep Learning"], "match_type": "any"}},
-      "priority": 1,
-      "rationale": "Multi-skill search with AI synonyms"
-    }},
-    {{
-      "sub_query": "Find people with AI experience in job descriptions",
-      "tool": "search_job_descriptions_by_keywords",
-      "params": {{"keywords": ["AI", "Artificial Intelligence", "Machine Learning", "Neural Networks", "NLP"], "match_type": "any"}},
-      "priority": 1,
-      "rationale": "Contextual AI expertise search with expanded terms"
-    }},
-    {{
-      "sub_query": "Find Google employees",
-      "tool": "find_people_by_company",
-      "params": {{"company_name": "Google"}},
-      "priority": 1,
-      "rationale": "Direct company match for intersection"
-    }}
-  ],
-  "execution_strategy": "parallel_intersect",
-  "total_sub_queries": 3
-}}
-
-Example 3 - Experience Filter (CRITICAL - Use Ranges, NOT Exact Values):
-Filters: {{"skill_filters": ["Python"], "company_filters": ["Google"], "experience_filters": {{"min_years": 2}}, ...}}
-Output:
-{{
-  "original_query": "Python developers at Google with 2 years experience",
-  "filters_used": {{"skill_filters": ["Python"], "company_filters": ["Google"], "experience_filters": {{"min_years": 2}}}},
-  "sub_queries": [
-    {{
-      "sub_query": "Find people with Python in skill arrays",
-      "tool": "find_people_by_skill",
-      "params": {{"skill": "Python"}},
-      "priority": 1,
-      "rationale": "Direct skill match in technical_skills array"
-    }},
-    {{
-      "sub_query": "Find people with Python development experience in job descriptions",
-      "tool": "search_job_descriptions_by_keywords",
-      "params": {{"keywords": ["Python", "Python developer", "Python engineer", "Python programming"], "match_type": "any"}},
-      "priority": 1,
-      "rationale": "Contextual Python experience search (captures people with Python in job history)"
-    }},
-    {{
-      "sub_query": "Find people with 2 years experience (18-30 months range)",
-      "tool": "find_people_by_experience_level",
-      "params": {{"min_months": 18, "max_months": 30}},
-      "priority": 1,
-      "rationale": "Experience range with ±6 months tolerance (2 years = 24 months ± 6)"
-    }},
-    {{
-      "sub_query": "Find Google employees",
-      "tool": "find_people_by_company",
-      "params": {{"company_name": "Google"}},
-      "priority": 1,
-      "rationale": "Direct company match for intersection"
-    }}
-  ],
-  "execution_strategy": "parallel_intersect",
-  "total_sub_queries": 4
-}}
-
-CRITICAL EXPERIENCE CONVERSION RULES:
-- "2 years" → min_months: 18, max_months: 30 (24 ± 6 months tolerance)
-- "5+ years" → min_months: 60 (no max_months for "5 or more")
-- "2-5 years" → min_months: 24, max_months: 60 (range boundaries)
-- NEVER use exact values like min_months: 24, max_months: 24 (too strict!)
-- Always add ±6 months tolerance for single year values
-- For "X+ years", only set min_months (no max)
-- For "X-Y years", use exact range boundaries in months
-
-Example 4 - Role-based Search:
-Filters: {{"skill_filters": [], "other_criteria": {{"role": "founder"}}, ...}}
-Output:
-{{
-  "original_query": "Find founders",
-  "filters_used": {{"other_criteria": {{"role": "founder"}}}},
-  "sub_queries": [
-    {{
-      "sub_query": "Find people with leadership indicators",
-      "tool": "find_leadership_indicators",
-      "params": {{}},
-      "priority": 1,
-      "rationale": "Identify leadership experience from job descriptions"
-    }},
-    {{
-      "sub_query": "Find people with founder/entrepreneur keywords",
-      "tool": "search_job_descriptions_by_keywords",
-      "params": {{"keywords": ["founder", "co-founder", "CEO", "entrepreneur", "startup", "founded"], "match_type": "any"}},
-      "priority": 1,
-      "rationale": "Direct founder keyword search with variations"
+      "rationale": "Contextual search with synonym expansion in job history (captures Python mentions in descriptions)"
     }}
   ],
   "execution_strategy": "parallel_union",
   "total_sub_queries": 2
 }}
 
-Example 5 - Name-based Search (CRITICAL - Use person_name parameter):
-Filters: {{"name_filters": ["John Smith"], ...}}
+Example 2 - Compound Search (Technical Skill + Current Company):
+Filters: {{"skill_filters": ["AI"], "company_filters": ["Google"], ...}}
 Output:
 {{
-  "original_query": "Find John Smith",
-  "filters_used": {{"name_filters": ["John Smith"]}},
+  "original_query": "AI experts currently at Google",
+  "filters_used": {{"skill_filters": ["AI"], "company_filters": ["Google"]}},
   "sub_queries": [
     {{
-      "sub_query": "Get complete profile for John Smith",
-      "tool": "get_person_complete_profile",
-      "params": {{"person_name": "John Smith"}},
+      "sub_query": "Find people with AI/ML in technical skills array",
+      "tool": "find_people_by_technical_skill",
+      "params": {{"skill": "AI"}},
       "priority": 1,
-      "rationale": "Direct lookup by name using person_name parameter (NOT 'name') to fetch full profile"
+      "rationale": "Direct match in technical_skills array for AI/ML"
+    }},
+    {{
+      "sub_query": "Find people with AI experience in job descriptions",
+      "tool": "search_job_descriptions_by_keywords",
+      "params": {{"keywords": ["AI", "Artificial Intelligence", "Machine Learning", "Neural Networks", "NLP"], "match_type": "any"}},
+      "priority": 1,
+      "rationale": "Contextual AI expertise search with expanded terms in job history"
+    }},
+    {{
+      "sub_query": "Find current Google employees",
+      "tool": "find_people_by_current_company",
+      "params": {{"company_name": "Google"}},
+      "priority": 1,
+      "rationale": "Fast property-based search for current Google employees only (use find_people_by_current_company for 'currently works at', use find_people_by_company_history for 'has worked at' or alumni)"
     }}
   ],
-  "execution_strategy": "sequential",
-  "total_sub_queries": 1
+  "execution_strategy": "parallel_intersect",
+  "total_sub_queries": 3
 }}
 
-CRITICAL PARAMETER NAMING RULES:
-- get_person_complete_profile: MUST use "person_name" parameter (NOT "name") for name-based lookups
-- get_person_complete_profile: Can also use "person_id" if ID is already known
-- find_person_by_name: Use "name" parameter (for lightweight search that returns person_id)
-- For simple name lookups, use get_person_complete_profile directly with person_name (no need for find_person_by_name first)
+Example 3 - Leadership/Soft Skills with Multi-Skill:
+Filters: {{"skill_filters": ["leadership", "Python"], "other_criteria": {{"role": "founder"}}, ...}}
+Output:
+{{
+  "original_query": "Find founders with leadership and Python skills",
+  "filters_used": {{"skill_filters": ["leadership", "Python"], "other_criteria": {{"role": "founder"}}}},
+  "sub_queries": [
+    {{
+      "sub_query": "Find people with leadership in secondary skills array",
+      "tool": "find_people_by_secondary_skill",
+      "params": {{"skill": "leadership"}},
+      "priority": 1,
+      "rationale": "Direct match in secondary_skills array (specialized for soft skills like leadership, communication)"
+    }},
+    {{
+      "sub_query": "Find people with Python in technical skills array",
+      "tool": "find_people_by_technical_skill",
+      "params": {{"skill": "Python"}},
+      "priority": 1,
+      "rationale": "Direct match in technical_skills array (specialized for technical skills)"
+    }},
+    {{
+      "sub_query": "Find people with founder/leadership keywords in job descriptions",
+      "tool": "search_job_descriptions_by_keywords",
+      "params": {{"keywords": ["founder", "co-founder", "CEO", "entrepreneur", "startup", "founded", "leadership", "managed team", "led team"], "match_type": "any"}},
+      "priority": 1,
+      "rationale": "Contextual search for founder and leadership keywords (DO NOT use find_leadership_indicators - removed)"
+    }}
+  ],
+  "execution_strategy": "parallel_intersect",
+  "total_sub_queries": 3,
+  "notes": "Use find_people_by_technical_skill for technical skills, find_people_by_secondary_skill for soft skills. For multi-skill AND queries, use parallel calls with parallel_intersect strategy."
+}}
+
+CRITICAL RULES:
+- Technical skills (Python, AWS, ML) → find_people_by_technical_skill + search_job_descriptions_by_keywords
+- Soft skills (leadership, communication) → find_people_by_secondary_skill + search_job_descriptions_by_keywords
+- Current employees → find_people_by_current_company (fast)
+- Company history (current + past) → find_people_by_company_history
+- Multi-skill queries → parallel calls to specialized tools, NOT find_people_with_multiple_skills (removed)
+- Leadership/roles → search_job_descriptions_by_keywords with keywords, NOT find_leadership_indicators (removed)
+- Experience filters → ALWAYS use ranges with ±6 months tolerance (e.g., 2 years = 18-30 months)
+- Name lookups → use "person_name" parameter with get_person_complete_profile
 
 NOW GENERATE SUB-QUERIES FOR THESE FILTERS.
 Return ONLY valid JSON matching the structure shown in examples."""
