@@ -165,7 +165,7 @@ EXTRACTION RULES:
 
 FEW-SHOT EXAMPLES:
 
-Example 1:
+Example 1 - Simple Skill + Company:
 Query: "Find Python developers at Google"
 Response:
 {{
@@ -180,7 +180,7 @@ Response:
   "other_criteria": {{}}
 }}
 
-Example 2:
+Example 2 - Complex Multi-Filter:
 Query: "AI experts in Bangalore with 5+ years experience"
 Response:
 {{
@@ -195,49 +195,19 @@ Response:
   "other_criteria": {{}}
 }}
 
-Example 3:
-Query: "Senior React developers at Microsoft or Amazon in Seattle"
+Example 3 - Leadership/Soft Skills with Role:
+Query: "Find startup founders with leadership skills in San Francisco"
 Response:
 {{
-  "original_query": "Senior React developers at Microsoft or Amazon in Seattle",
-  "skill_filters": ["React", "JavaScript"],
-  "company_filters": ["Microsoft", "Amazon"],
-  "location_filters": ["Seattle"],
-  "experience_filters": {{}},
-  "seniority_filters": ["Senior"],
-  "name_filters": [],
-  "institution_filters": [],
-  "other_criteria": {{}}
-}}
-
-Example 4:
-Query: "Tell me about John Smith's colleagues at Adobe"
-Response:
-{{
-  "original_query": "Tell me about John Smith's colleagues at Adobe",
-  "skill_filters": [],
-  "company_filters": ["Adobe"],
-  "location_filters": [],
-  "experience_filters": {{}},
-  "seniority_filters": [],
-  "name_filters": ["John Smith"],
-  "institution_filters": [],
-  "other_criteria": {{"query_type": "colleagues"}}
-}}
-
-Example 5:
-Query: "IIT Bombay graduates working in fintech"
-Response:
-{{
-  "original_query": "IIT Bombay graduates working in fintech",
-  "skill_filters": [],
+  "original_query": "Find startup founders with leadership skills in San Francisco",
+  "skill_filters": ["leadership"],
   "company_filters": [],
-  "location_filters": [],
+  "location_filters": ["San Francisco"],
   "experience_filters": {{}},
   "seniority_filters": [],
   "name_filters": [],
-  "institution_filters": ["IIT Bombay", "Indian Institute of Technology Bombay"],
-  "other_criteria": {{"industry": "fintech"}}
+  "institution_filters": [],
+  "other_criteria": {{"role": "founder", "company_type": "startup"}}
 }}
 
 NOW EXTRACT FILTERS FROM THIS QUERY:

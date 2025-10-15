@@ -531,22 +531,22 @@ if __name__ == "__main__":
     
     # Create test state with sample data
     test_state: AgentState = {
-        'user_query': "Find Machine Learning experts at IIT Bombay",
+        'user_query': "Find Python developers with Machine Learning skills at IIT Bombay",
         'accumulated_data': [
             332592352,  # Sample person IDs
             420177476,
             102380764
         ],
         'filters': {
-            'skill_filters': ['Machine Learning', 'AI'],
+            'technical_skills': ['Python', 'Machine Learning'],
             'institution_filters': ['IIT Bombay'],
             'location_filters': []
         },
         'tool_results': [
             {
-                'tool_name': 'find_people_by_skill',
+                'tool_name': 'find_people_by_technical_skill',
                 'success': True,
-                'person_count': 40
+                'person_count': 35
             },
             {
                 'tool_name': 'find_people_by_institution',

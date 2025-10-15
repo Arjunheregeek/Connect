@@ -1,8 +1,8 @@
 """
 Tool Catalog for Query Analyzer
 
-Provides structured metadata about the 19 actual MCP tools to help the query analyzer
-select appropriate tools based on user queries.
+Provides structured metadata about the 14 actual MCP tools (13 query tools + health_check)
+to help the query analyzer select appropriate tools based on user queries.
 
 IMPORTANT: This catalog reflects the ACTUAL tools available in the system.
 All parameters and descriptions match the real Neo4j schema and query implementations.
@@ -33,12 +33,12 @@ TOOL_CATALOG = [
     },
     
     # =================================================================
-    # CORE PERSON PROFILE TOOLS (13 tools)
+    # CORE PERSON PROFILE TOOLS (10 tools)
     # =================================================================
     {
         "name": "get_person_complete_profile",
         "category": "person_profile",
-        "description": "Get complete profile for a person including ALL 35 properties, work history with job descriptions, and education. This is the heavyweight query that returns everything.",
+        "description": "Get complete profile for a person including 12 essential properties and work history with job descriptions. Returns person_id, name, headline, linkedin_profile, location, current_company, current_title, total_experience_months, technical_skills, secondary_skills, domain_knowledge, and work_history.",
         "parameters": ["person_id", "person_name"],
         "optional_params": ["person_id", "person_name"],
         "use_when": [
@@ -88,37 +88,76 @@ TOOL_CATALOG = [
         ]
     },
     {
-        "name": "find_people_by_company",
+        "name": "find_people_by_technical_skill",
         "category": "person_profile",
-        "description": "Find all people who worked at a specific company (current or past). Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships.",
-        "parameters": ["company_name"],
+        "description": "Find people by technical skills ONLY - searches technical_skills array (Python, AWS, ML, Kubernetes, SQL, etc.). Use this for programming languages, frameworks, tools, and technical abilities.",
+        "parameters": ["skill"],
         "use_when": [
-            "User asks about people at a specific company",
-            "Query mentions a company name",
-            "Need to find current or former employees"
+            "User asks for technical skills or programming languages",
+            "Query mentions frameworks, tools, technologies",
+            "Need to find developers/engineers with specific technical expertise"
         ],
-        "keywords": ["works at", "worked at", "company", "employer", "employees", "at Google", "from Microsoft"],
+        "keywords": ["Python", "Java", "JavaScript", "AWS", "Kubernetes", "Docker", "SQL", "React", "ML", "AI", "technical", "programming", "framework", "tool", "technology", "developer", "engineer"],
         "example_queries": [
-            "Who works at Google?",
-            "Find people from Microsoft",
-            "Employees at Amazon"
+            "Find Python developers",
+            "Who knows AWS?",
+            "Engineers with Kubernetes experience",
+            "People skilled in machine learning"
         ]
     },
     {
-        "name": "find_colleagues_at_company",
+        "name": "find_people_by_secondary_skill",
         "category": "person_profile",
-        "description": "Find colleagues of a specific person at a given company. Requires person_id (get from find_person_by_name first).",
-        "parameters": ["person_id", "company_name"],
+        "description": "Find people by secondary/soft skills ONLY - searches secondary_skills array (Leadership, Communication, Project Management, etc.). Use this for soft skills, leadership abilities, and non-technical skills.",
+        "parameters": ["skill"],
         "use_when": [
-            "User asks about colleagues at a specific company",
-            "Need to find people who worked together at one place",
-            "Query specifies both person and company"
+            "User asks for soft skills or leadership abilities",
+            "Query mentions communication, management, strategic skills",
+            "Need to find people with non-technical expertise"
         ],
-        "keywords": ["colleagues at", "worked with at", "teammates at", "coworkers at"],
+        "keywords": ["leadership", "communication", "management", "strategic", "soft skills", "interpersonal", "collaboration", "negotiation", "presentation", "mentoring", "coaching"],
         "example_queries": [
-            "Who worked with John at Google?",
-            "Sarah's colleagues at Microsoft",
-            "Find Mike's teammates at Amazon"
+            "Find leaders",
+            "Who has strong communication skills?",
+            "People with project management experience",
+            "Engineers with mentoring skills"
+        ]
+    },
+    {
+        "name": "find_people_by_current_company",
+        "category": "person_profile",
+        "description": "Find CURRENT employees of a specific company - fast property-based search using current_company field. Use this when you need only people who currently work at a company.",
+        "parameters": ["company_name"],
+        "use_when": [
+            "User asks for current employees only",
+            "Query uses 'currently works at', 'now at', 'present'",
+            "Need fast lookup of active employees"
+        ],
+        "keywords": ["currently works at", "current employees", "now at", "works at now", "present at", "currently at", "active employees"],
+        "example_queries": [
+            "Who currently works at Google?",
+            "Current Microsoft employees",
+            "People now working at Amazon",
+            "Active employees at Apple"
+        ]
+    },
+    {
+        "name": "find_people_by_company_history",
+        "category": "person_profile",
+        "description": "Find ALL people who have worked at a specific company (current AND past employees). Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships. Use this for company alumni searches or when you need both current and past employees.",
+        "parameters": ["company_name"],
+        "use_when": [
+            "User asks about people who have EVER worked at a company",
+            "Need both current and past employees",
+            "Query asks for 'worked at' (past tense) or 'alumni'",
+            "Company history or alumni search"
+        ],
+        "keywords": ["worked at", "has worked at", "company", "employer", "employees", "alumni", "former employees", "past and present", "ever worked"],
+        "example_queries": [
+            "Who has worked at Google?",
+            "Find all people from Microsoft (past and present)",
+            "Google alumni",
+            "Anyone who worked at Amazon"
         ]
     },
     {
@@ -156,59 +195,6 @@ TOOL_CATALOG = [
         ]
     },
     {
-        "name": "get_person_skills",
-        "category": "person_profile",
-        "description": "Get all skills for a specific person from their skill arrays (technical_skills, secondary_skills, domain_knowledge).",
-        "parameters": ["person_id", "person_name"],
-        "optional_params": ["person_id", "person_name"],
-        "use_when": [
-            "User asks what skills a person has",
-            "Need to list someone's expertise",
-            "Query asks about person's capabilities or knowledge"
-        ],
-        "keywords": ["skills", "what can", "expertise", "knows", "proficient in", "capabilities"],
-        "example_queries": [
-            "What skills does John have?",
-            "Show me Sarah's expertise",
-            "List Mike's skills"
-        ]
-    },
-    {
-        "name": "find_people_with_multiple_skills",
-        "category": "person_profile",
-        "description": "Find people who have multiple specific skills with AND/OR logic. match_type can be 'any' (OR) or 'all' (AND).",
-        "parameters": ["skills_list", "match_type"],
-        "use_when": [
-            "User asks for people with multiple skills",
-            "Query uses 'and' or 'or' between skills",
-            "Need combination of skills"
-        ],
-        "keywords": ["and", "or", "both", "multiple skills", "combination", "all of"],
-        "example_queries": [
-            "Python and JavaScript developers",
-            "People with React or Vue",
-            "Engineers with both ML and Python"
-        ]
-    },
-    {
-        "name": "get_person_colleagues",
-        "category": "person_profile",
-        "description": "Get all colleagues of a person across all companies they worked at. Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships.",
-        "parameters": ["person_id", "person_name"],
-        "optional_params": ["person_id", "person_name"],
-        "use_when": [
-            "User asks about someone's colleagues",
-            "Need to find people who worked with someone",
-            "Query asks about connections or coworkers"
-        ],
-        "keywords": ["colleagues", "coworkers", "worked with", "connections", "teammates", "network"],
-        "example_queries": [
-            "Who are John's colleagues?",
-            "Find Sarah's coworkers",
-            "People who worked with Mike"
-        ]
-    },
-    {
         "name": "find_people_by_experience_level",
         "category": "person_profile",
         "description": "Find people based on their total work experience in months. Uses total_experience_months property.",
@@ -226,44 +212,9 @@ TOOL_CATALOG = [
             "People with 2-3 years experience"
         ]
     },
-    {
-        "name": "get_company_employees",
-        "category": "person_profile",
-        "description": "Get all employees (past and present) of a specific company. Uses CURRENTLY_WORKS_AT and PREVIOUSLY_WORKED_AT relationships.",
-        "parameters": ["company_name"],
-        "use_when": [
-            "User asks for all employees of a company",
-            "Need complete list of company workers",
-            "Query asks 'who works/worked at' or 'all employees'"
-        ],
-        "keywords": ["all employees", "everyone at", "all people at", "workforce", "team at"],
-        "example_queries": [
-            "All employees at Google",
-            "Everyone who worked at Microsoft",
-            "Get all Amazon employees"
-        ]
-    },
-    {
-        "name": "get_person_details",
-        "category": "person_profile",
-        "description": "Get comprehensive details about a person including skills, companies, and education - summary view (lighter than get_person_complete_profile).",
-        "parameters": ["person_id", "person_name"],
-        "optional_params": ["person_id", "person_name"],
-        "use_when": [
-            "User asks for details about a person",
-            "Need summary information (not full profile)",
-            "Query asks 'tell me about' or 'details on'"
-        ],
-        "keywords": ["details", "about", "information", "tell me about", "summary"],
-        "example_queries": [
-            "Tell me about John Smith",
-            "Details on Sarah Chen",
-            "Information about Mike"
-        ]
-    },
     
     # =================================================================
-    # JOB DESCRIPTION ANALYSIS TOOLS (5 tools)
+    # JOB DESCRIPTION ANALYSIS TOOLS (3 tools)
     # =================================================================
     {
         "name": "get_person_job_descriptions",
@@ -298,40 +249,6 @@ TOOL_CATALOG = [
             "Who worked on microservices?",
             "Find people who managed teams",
             "Experience with cloud infrastructure"
-        ]
-    },
-    {
-        "name": "find_technical_skills_in_descriptions",
-        "category": "job_analysis",
-        "description": "Find people who mention specific technical skills in their job descriptions. Goes beyond structured skill arrays to find contextual mentions.",
-        "parameters": ["tech_keywords"],
-        "use_when": [
-            "User looks for specific technical mentions",
-            "Need to find contextual technical expertise",
-            "Query asks about technologies used in actual work"
-        ],
-        "keywords": ["used", "worked with", "implemented", "built with", "technology", "technical"],
-        "example_queries": [
-            "Who used Kubernetes in their work?",
-            "Find people who built with React",
-            "Engineers who worked with AWS"
-        ]
-    },
-    {
-        "name": "find_leadership_indicators",
-        "category": "job_analysis",
-        "description": "Find people with leadership indicators in their job descriptions. Looks for management, team lead, and leadership-related keywords.",
-        "parameters": [],
-        "use_when": [
-            "User asks for leaders or managers",
-            "Need to identify leadership experience",
-            "Query mentions management, leadership, or team lead"
-        ],
-        "keywords": ["leader", "manager", "lead", "director", "head of", "managed team", "leadership"],
-        "example_queries": [
-            "Find engineering managers",
-            "Who has leadership experience?",
-            "People who led teams"
         ]
     },
     {

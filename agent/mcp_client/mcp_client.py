@@ -16,7 +16,7 @@ Key Features:
 - X-API-Key authentication
 - Comprehensive error handling
 - Connection pooling and retry logic
-- Type-safe interfaces for all 19 tools
+- Type-safe interfaces for all 14 tools (13 query tools + health_check)
 """
 
 from typing import Dict, Any, Optional
@@ -114,26 +114,30 @@ class MCPClient:
     
     # =================================================================
     # DYNAMIC TOOL ACCESS
-    # All 24 MCP tools are accessible via the tool_client property
+    # All 14 MCP tools are accessible via the tool_client property
     # This eliminates redundancy while maintaining clean access patterns
     # =================================================================
     
     @property
     def tools(self) -> MCPToolClient:
         """
-        Access to all 24 MCP tools via the tool client.
+        Access to all 14 MCP tools via the tool client.
         
         Usage:
             # Instead of client.find_people_by_skill("python")
             response = await client.tools.find_people_by_skill("python")
             
-            # Natural language search
-            response = await client.tools.natural_language_search("Who are Python experts?")
+            # Technical skill search
+            response = await client.tools.find_people_by_technical_skill("Python")
             
-            # Any of the 24 available tools
+            # Any of the 14 available tools
             response = await client.tools.find_domain_experts(["AI", "ML"])
         """
         return self.tool_client
+
+
+# Only export the main client class
+__all__ = ['MCPClient']
 
 
 # Only export the main client class
@@ -237,26 +241,31 @@ class MCPClient:
     
     # =================================================================
     # DYNAMIC TOOL ACCESS
-    # All 24 MCP tools are accessible via the tool_client property
+    # All 14 MCP tools are accessible via the tool_client property
     # This eliminates redundancy while maintaining clean access patterns
     # =================================================================
     
     @property
     def tools(self) -> MCPToolClient:
         """
-        Access to all 24 MCP tools via the tool client.
+        Access to all 14 MCP tools via the tool client.
         
         Usage:
             # Instead of client.find_people_by_skill("python")
             response = await client.tools.find_people_by_skill("python")
             
-            # Natural language search
-            response = await client.tools.natural_language_search("Who are Python experts?")
+            # Technical skill search
+            response = await client.tools.find_people_by_technical_skill("Python")
             
-            # Any of the 24 available tools
+            # Any of the 14 available tools
             response = await client.tools.find_domain_experts(["AI", "ML"])
         """
         return self.tool_client
+
+# Only export the main client class
+__all__ = [
+    'MCPClient'
+]
 
 # Only export the main client class
 __all__ = [

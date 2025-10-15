@@ -433,7 +433,8 @@ def aggregate_results(
     Aggregate person IDs based on execution strategy.
     
     IMPORTANT: For parallel_intersect with multiple filters, we use a softened approach:
-    - UNION all skill-related queries (find_people_by_skill + search_job_descriptions_by_keywords)
+    - UNION all skill-related queries (find_people_by_skill, find_people_by_technical_skill, 
+      find_people_by_secondary_skill, search_job_descriptions_by_keywords)
     - INTERSECT the skill union with other filters (experience, company, etc.)
     - This ensures we're not too strict and show nearest possible matches
     
@@ -453,7 +454,13 @@ def aggregate_results(
         priority_1_keys = [key for key in all_person_ids.keys() if key.endswith('_1')]
         
         # Separate skill-related queries from other filters
-        skill_keys = [k for k in priority_1_keys if 'find_people_by_skill' in k or 'search_job_descriptions' in k]
+        # Include all skill search tools: find_people_by_skill, find_people_by_technical_skill, 
+        # find_people_by_secondary_skill, and search_job_descriptions_by_keywords
+        skill_keys = [k for k in priority_1_keys if 
+                     'find_people_by_skill' in k or 
+                     'find_people_by_technical_skill' in k or 
+                     'find_people_by_secondary_skill' in k or 
+                     'search_job_descriptions' in k]
         other_keys = [k for k in priority_1_keys if k not in skill_keys]
         
         # UNION all skill queries (OR logic for skills)
@@ -549,9 +556,9 @@ async def test_enhanced_executor():
                 'rationale': 'Direct skill match'
             },
             {
-                'sub_query': 'Find people with leadership indicators',
-                'tool': 'find_leadership_indicators',
-                'params': {},
+                'sub_query': 'Find people with leadership skills',
+                'tool': 'find_people_by_secondary_skill',
+                'params': {'skill': 'leadership'},
                 'priority': 2,
                 'rationale': 'Optional leadership filter'
             }
