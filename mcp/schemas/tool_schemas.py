@@ -65,7 +65,7 @@ IMPORTANT NOTES:
 MCP_TOOLS = [
     {
         "name": "get_person_complete_profile",
-        "description": "Get complete profile for a person including ALL 35 properties, work history with job descriptions, and education history",
+        "description": "Get complete profile for a person including 12 essential properties and work history (without descriptions or dates)",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -110,8 +110,50 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "find_people_by_company",
-        "description": "Find all people who have worked at a specific company (current or past)",
+        "name": "find_people_by_technical_skill",
+        "description": "Find people by technical skills ONLY - searches technical_skills array (e.g., Python, AWS, Machine Learning, Kubernetes, SQL). Use this for programming languages, frameworks, and technical tools",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skill": {
+                    "type": "string",
+                    "description": "The technical skill to search for (case-insensitive)"
+                }
+            },
+            "required": ["skill"]
+        }
+    },
+    {
+        "name": "find_people_by_secondary_skill",
+        "description": "Find people by secondary/soft skills ONLY - searches secondary_skills array (e.g., Leadership, Communication, Project Management, Strategic Planning). Use this for soft skills and non-technical abilities",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "skill": {
+                    "type": "string",
+                    "description": "The secondary/soft skill to search for (case-insensitive)"
+                }
+            },
+            "required": ["skill"]
+        }
+    },
+    {
+        "name": "find_people_by_current_company",
+        "description": "Find CURRENT employees of a specific company - fast property-based search using current_company field. Returns only people currently working at the company",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "company_name": {
+                    "type": "string",
+                    "description": "The name of the company to search for current employees (case-insensitive partial matching)"
+                }
+            },
+            "required": ["company_name"]
+        }
+    },
+    {
+        "name": "find_people_by_company_history",
+        "description": "Find ALL people who have worked at a specific company (current AND past employees) - searches through work history relationships. Use this for comprehensive company employee search including alumni",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -121,24 +163,6 @@ MCP_TOOLS = [
                 }
             },
             "required": ["company_name"]
-        }
-    },
-    {
-        "name": "find_colleagues_at_company",
-        "description": "Find colleagues of a specific person at a given company",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "person_id": {
-                    "type": "integer",
-                    "description": "The ID of the person to find colleagues for"
-                },
-                "company_name": {
-                    "type": "string",
-                    "description": "The name of the company where they worked together"
-                }
-            },
-            "required": ["person_id", "company_name"]
         }
     },
     {
@@ -170,63 +194,6 @@ MCP_TOOLS = [
         }
     },
     {
-        "name": "get_person_skills",
-        "description": "Get all skills for a specific person from their skill arrays (technical_skills, secondary_skills, domain_knowledge)",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "person_id": {
-                    "type": "integer",
-                    "description": "The person ID (preferred)"
-                },
-                "person_name": {
-                    "type": "string",
-                    "description": "The person name (alternative)"
-                }
-            },
-            "required": []
-        }
-    },
-    {
-        "name": "find_people_with_multiple_skills",
-        "description": "Find people who have multiple specific skills with AND/OR logic",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "skills_list": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of skills to search for"
-                },
-                "match_type": {
-                    "type": "string",
-                    "enum": ["any", "all"],
-                    "default": "any",
-                    "description": "Match 'any' skill (OR) or 'all' skills (AND)"
-                }
-            },
-            "required": ["skills_list"]
-        }
-    },
-    {
-        "name": "get_person_colleagues",
-        "description": "Get all colleagues of a person across all companies they worked at",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "person_id": {
-                    "type": "integer",
-                    "description": "The person ID (preferred)"
-                },
-                "person_name": {
-                    "type": "string",
-                    "description": "The person name (alternative)"
-                }
-            },
-            "required": []
-        }
-    },
-    {
         "name": "find_people_by_experience_level",
         "description": "Find people based on their total work experience in months",
         "inputSchema": {
@@ -239,38 +206,6 @@ MCP_TOOLS = [
                 "max_months": {
                     "type": "integer",
                     "description": "Maximum experience in months"
-                }
-            },
-            "required": []
-        }
-    },
-    {
-        "name": "get_company_employees",
-        "description": "Get all employees (past and present) of a specific company",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "company_name": {
-                    "type": "string",
-                    "description": "The name of the company to get employees for"
-                }
-            },
-            "required": ["company_name"]
-        }
-    },
-    {
-        "name": "get_person_details",
-        "description": "Get comprehensive details about a person including skills, companies, and education - summary view",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "person_id": {
-                    "type": "integer",
-                    "description": "The person ID (preferred)"
-                },
-                "person_name": {
-                    "type": "string",
-                    "description": "The person name (alternative)"
                 }
             },
             "required": []
@@ -313,30 +248,6 @@ MCP_TOOLS = [
                 }
             },
             "required": ["keywords"]
-        }
-    },
-    {
-        "name": "find_technical_skills_in_descriptions",
-        "description": "Find people who mention specific technical skills in their job descriptions - goes beyond structured skills to find contextual technical mentions",
-        "inputSchema": {
-            "type": "object",
-            "properties": {
-                "tech_keywords": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "List of technical terms to search for (e.g., python, kubernetes, machine learning)"
-                }
-            },
-            "required": ["tech_keywords"]
-        }
-    },
-    {
-        "name": "find_leadership_indicators",
-        "description": "Find people with leadership indicators in their job descriptions - looks for management, team lead, and leadership-related keywords",
-        "inputSchema": {
-            "type": "object",
-            "properties": {},
-            "required": []
         }
     },
     {

@@ -14,27 +14,22 @@ from mcp.services.bridge_service import bridge_service
 logger = logging.getLogger(__name__)
 
 class MCPHandler:
-    """Handles MCP protocol requests and routes them to appropriate handlers - 19 tools"""
+    """Handles MCP protocol requests and routes them to appropriate handlers - 14 tools (13 query tools + health_check)"""
     
     def __init__(self):
         self.tool_handlers = {
             "get_person_complete_profile": self._handle_get_person_complete_profile,
             "find_person_by_name": self._handle_find_person_by_name,
             "find_people_by_skill": self._handle_find_people_by_skill,
-            "find_people_by_company": self._handle_find_people_by_company,
-            "find_colleagues_at_company": self._handle_find_colleagues_at_company,
+            "find_people_by_technical_skill": self._handle_find_people_by_technical_skill,
+            "find_people_by_secondary_skill": self._handle_find_people_by_secondary_skill,
+            "find_people_by_current_company": self._handle_find_people_by_current_company,
+            "find_people_by_company_history": self._handle_find_people_by_company_history,
             "find_people_by_institution": self._handle_find_people_by_institution,
             "find_people_by_location": self._handle_find_people_by_location,
-            "get_person_skills": self._handle_get_person_skills,
-            "find_people_with_multiple_skills": self._handle_find_people_with_multiple_skills,
-            "get_person_colleagues": self._handle_get_person_colleagues,
             "find_people_by_experience_level": self._handle_find_people_by_experience_level,
-            "get_company_employees": self._handle_get_company_employees,
-            "get_person_details": self._handle_get_person_details,
             "get_person_job_descriptions": self._handle_get_person_job_descriptions,
             "search_job_descriptions_by_keywords": self._handle_search_job_descriptions_by_keywords,
-            "find_technical_skills_in_descriptions": self._handle_find_technical_skills_in_descriptions,
-            "find_leadership_indicators": self._handle_find_leadership_indicators,
             "find_domain_experts": self._handle_find_domain_experts,
             "health_check": self._handle_health_check
         }
@@ -167,11 +162,11 @@ class MCPHandler:
             )
     
     # ============================================================================
-    # Tool Handler Methods - 19 handlers matching tool_schemas.py
+    # Tool Handler Methods - 14 handlers matching tool_schemas.py
     # ============================================================================
     
     async def _handle_get_person_complete_profile(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get complete profile for a person including ALL properties"""
+        """Get complete profile for a person including 12 essential properties"""
         person_id = arguments.get("person_id")
         person_name = arguments.get("person_name")
         
@@ -210,29 +205,52 @@ class MCPHandler:
         logger.info(f"Found {len(result)} people with skill: {skill}")
         return result
     
-    async def _handle_find_people_by_company(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find people by company"""
+    async def _handle_find_people_by_technical_skill(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find people by technical skill ONLY"""
+        skill = arguments.get("skill")
+        
+        if not skill:
+            raise ValueError("Skill is required")
+        
+        result = await bridge_service.find_people_by_technical_skill(skill)
+        
+        logger.info(f"Found {len(result)} people with technical skill: {skill}")
+        return result
+    
+    async def _handle_find_people_by_secondary_skill(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find people by secondary/soft skill ONLY"""
+        skill = arguments.get("skill")
+        
+        if not skill:
+            raise ValueError("Skill is required")
+        
+        result = await bridge_service.find_people_by_secondary_skill(skill)
+        
+        logger.info(f"Found {len(result)} people with secondary skill: {skill}")
+        return result
+    
+    async def _handle_find_people_by_current_company(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find CURRENT employees of a specific company"""
         company_name = arguments.get("company_name")
         
         if not company_name:
             raise ValueError("Company name is required")
         
-        result = await bridge_service.find_people_by_company(company_name)
+        result = await bridge_service.find_people_by_current_company(company_name)
         
-        logger.info(f"Found {len(result)} people at company: {company_name}")
+        logger.info(f"Found {len(result)} current employees at company: {company_name}")
         return result
     
-    async def _handle_find_colleagues_at_company(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find colleagues at a specific company"""
-        person_id = arguments.get("person_id")
+    async def _handle_find_people_by_company_history(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Find ALL people who have worked at a specific company (current AND past)"""
         company_name = arguments.get("company_name")
         
-        if not person_id or not company_name:
-            raise ValueError("Both person_id and company_name are required")
+        if not company_name:
+            raise ValueError("Company name is required")
         
-        result = await bridge_service.find_colleagues_at_company(person_id, company_name)
+        result = await bridge_service.find_people_by_company_history(company_name)
         
-        logger.info(f"Found {len(result)} colleagues at {company_name}")
+        logger.info(f"Found {len(result)} people with company history: {company_name}")
         return result
     
     async def _handle_find_people_by_institution(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -259,51 +277,6 @@ class MCPHandler:
         logger.info(f"Found {len(result)} people in location: {location}")
         return result
     
-    async def _handle_get_person_skills(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get all skills for a person"""
-        person_id = arguments.get("person_id")
-        person_name = arguments.get("person_name")
-        
-        if not person_id and not person_name:
-            raise ValueError("Must provide either person_id or person_name")
-        
-        result = await bridge_service.get_person_skills(
-            person_id=person_id,
-            person_name=person_name
-        )
-        
-        logger.info(f"Retrieved skills for person")
-        return result
-    
-    async def _handle_find_people_with_multiple_skills(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find people with multiple skills"""
-        skills_list = arguments.get("skills_list", [])
-        match_type = arguments.get("match_type", "any")
-        
-        if not skills_list:
-            raise ValueError("Skills list is required")
-        
-        result = await bridge_service.find_people_with_multiple_skills(skills_list, match_type)
-        
-        logger.info(f"Found {len(result)} people with skills: {skills_list}")
-        return result
-    
-    async def _handle_get_person_colleagues(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get all colleagues of a person"""
-        person_id = arguments.get("person_id")
-        person_name = arguments.get("person_name")
-        
-        if not person_id and not person_name:
-            raise ValueError("Must provide either person_id or person_name")
-        
-        result = await bridge_service.get_person_colleagues(
-            person_id=person_id,
-            person_name=person_name
-        )
-        
-        logger.info(f"Retrieved {len(result)} colleagues")
-        return result
-    
     async def _handle_find_people_by_experience_level(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Find people by experience level"""
         min_months = arguments.get("min_months")
@@ -312,34 +285,6 @@ class MCPHandler:
         result = await bridge_service.find_people_by_experience_level(min_months, max_months)
         
         logger.info(f"Found {len(result)} people with experience level")
-        return result
-    
-    async def _handle_get_company_employees(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get all employees of a company"""
-        company_name = arguments.get("company_name")
-        
-        if not company_name:
-            raise ValueError("Company name is required")
-        
-        result = await bridge_service.get_company_employees(company_name)
-        
-        logger.info(f"Found {len(result)} employees at {company_name}")
-        return result
-    
-    async def _handle_get_person_details(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Get comprehensive person details"""
-        person_id = arguments.get("person_id")
-        person_name = arguments.get("person_name")
-        
-        if not person_id and not person_name:
-            raise ValueError("Must provide either person_id or person_name")
-        
-        result = await bridge_service.get_person_details(
-            person_id=person_id,
-            person_name=person_name
-        )
-        
-        logger.info(f"Retrieved person details")
         return result
     
     async def _handle_get_person_job_descriptions(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -369,25 +314,6 @@ class MCPHandler:
         result = await bridge_service.search_job_descriptions_by_keywords(keywords, match_type)
         
         logger.info(f"Found {len(result)} people matching keywords: {keywords}")
-        return result
-    
-    async def _handle_find_technical_skills_in_descriptions(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find technical skills in job descriptions"""
-        tech_keywords = arguments.get("tech_keywords", [])
-        
-        if not tech_keywords:
-            raise ValueError("Tech keywords list is required")
-        
-        result = await bridge_service.find_technical_skills_in_descriptions(tech_keywords)
-        
-        logger.info(f"Found {len(result)} people with tech skills: {tech_keywords}")
-        return result
-    
-    async def _handle_find_leadership_indicators(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Find people with leadership indicators"""
-        result = await bridge_service.find_leadership_indicators()
-        
-        logger.info(f"Found {len(result)} people with leadership indicators")
         return result
     
     async def _handle_find_domain_experts(self, arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
