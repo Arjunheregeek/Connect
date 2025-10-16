@@ -55,6 +55,8 @@ class AgentState(TypedDict, total=False):
     # FINAL OUTPUT (ESSENTIAL)
     # =================================================================
     final_response: str                       # Synthesized final response
+    profiles: List[Dict[str, Any]]            # Raw profile data for frontend
+    synthesizer_metadata: Dict[str, Any]      # Synthesis metadata (tokens, counts, etc.)
     
     # =================================================================
     # ERROR HANDLING (MINIMAL)

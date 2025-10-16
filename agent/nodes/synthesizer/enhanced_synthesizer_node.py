@@ -154,6 +154,7 @@ async def enhanced_synthesizer_node(state: AgentState) -> AgentState:
         
         # Step 4: Update state
         state['final_response'] = response  # Changed from 'response' to 'final_response'
+        state['profiles'] = profiles  # NEW: Store raw profiles for frontend
         state['synthesizer_metadata'] = {
             'total_person_ids': len(person_ids),
             'profiles_fetched': len(profiles),
@@ -390,19 +391,30 @@ Candidate Profiles:
 Your Task:
 Generate a professional, human-readable response that:
 1. Starts with a brief summary of the search results
-2. **IMPORTANT: Present EVERY SINGLE candidate profile provided below** - do not skip any profiles
-3. For each candidate, include:
-   - Name and current role
-   - Key skills that match the search criteria
-   - Relevant experience highlights
-   - Contact information (email, LinkedIn)
-   - Why they're a good match
-4. Uses clear formatting with numbered sections for each candidate
-5. Maintains a professional yet friendly tone
+2. IMPORTANT: Present EVERY SINGLE candidate profile provided below - do not skip any profiles
+3. For each candidate, use this EXACT format (DO NOT use markdown bold ** or italic _ anywhere):
 
-**CRITICAL: You must include ALL {len(profiles)} candidates in your response. Do not summarize or skip any profiles.**
+#### N. [Candidate Name]
+Current Role: [Title] at [Company]
+Location: [Location]
+Key Skills: [Comma-separated list]
+Relevant Experience:
+  - [Experience highlight 1]
+  - [Experience highlight 2]
+Contact Information:
+  - LinkedIn: [URL]
+  - Email: [Email if available]
+Why a Good Match: [Brief explanation]
+
+4. Uses numbered sections (####) for each candidate
+5. Maintains a professional yet friendly tone
+6. CRITICAL: NO BOLD (**), NO ITALIC (_), NO MARKDOWN FORMATTING - use plain text only
+7. All field names (Current Role, Location, Key Skills, etc.) should be plain text, not bold
+
+CRITICAL: You must include ALL {len(profiles)} candidates in your response. Do not summarize or skip any profiles.
 
 Format the response in a clear, structured way that a hiring manager can easily scan and understand.
+Use PLAIN TEXT ONLY - no ** or _ characters for formatting.
 """
     
     # Call GPT-4o

@@ -180,6 +180,7 @@ class ConnectAgent:
             detailed_result = {
                 'response': response,
                 'success': True,
+                'profiles': result.get('profiles', []),  # NEW: Pass raw profiles
                 'metadata': {
                     'session_id': session_id,
                     'execution_time': execution_time,

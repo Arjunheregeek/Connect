@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
 import uvicorn
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import sys
 import os
 
@@ -47,6 +47,7 @@ class QueryRequest(BaseModel):
 class QueryResponse(BaseModel):
     response: str
     success: bool
+    profiles: List[Dict[str, Any]] = []  # NEW: Raw profile data
     metadata: Dict[str, Any]
 
 class HealthResponse(BaseModel):
@@ -73,12 +74,13 @@ async def ask_question(request: QueryRequest):
     try:
         result = await agent.ask_detailed(
             question=request.question,
-            conversation_id=request.conversation_id
+            session_id=request.conversation_id
         )
         
         return QueryResponse(
             response=result['response'],
             success=result['success'],
+            profiles=result.get('profiles', []),  # NEW: Include raw profiles
             metadata=result['metadata']
         )
         
